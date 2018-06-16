@@ -3,9 +3,11 @@
 
 #include "common.h"
 
+#include <linux/freezer.h>
 #include <linux/hrtimer.h>
 #include <linux/slab.h>
 #include <linux/usb.h>
+#include <linux/wait.h>
 #include <linux/workqueue.h>
 
 #define UPDATE_INTERVAL_DEFAULT (ms_to_ktime(1000))
@@ -52,17 +54,35 @@ update_interval_store(struct device *dev, struct device_attribute *attr,
 
 static DEVICE_ATTR_RW(update_interval);
 
+static ssize_t update_indicator_show(struct device *dev,
+                                     struct device_attribute *attr, char *buf)
+{
+	struct usb_kraken *kraken = usb_get_intfdata(to_usb_interface(dev));
+	int ret;
+	kraken->update_indicator_condition = false;
+	ret = !wait_event_freezable(kraken->update_indicator_waitqueue,
+	                            kraken->update_indicator_condition);
+	return scnprintf(buf, PAGE_SIZE, "%d\n", ret);
+}
+
+static DEVICE_ATTR_RO(update_indicator);
+
 static int kraken_create_device_files(struct usb_interface *interface)
 {
 	int retval;
-	if ((retval = device_create_file(
-		     &interface->dev, &dev_attr_update_interval)))
+	if ((retval = device_create_file(&interface->dev,
+	                                 &dev_attr_update_interval)))
 		goto error_update_interval;
+	if ((retval = device_create_file(&interface->dev,
+	                                 &dev_attr_update_indicator)))
+		goto error_update_indicator;
 	if ((retval = kraken_driver_create_device_files(interface)))
 		goto error_driver_files;
 
 	return 0;
 error_driver_files:
+	device_remove_file(&interface->dev, &dev_attr_update_indicator);
+error_update_indicator:
 	device_remove_file(&interface->dev, &dev_attr_update_interval);
 error_update_interval:
 	return retval;
@@ -72,6 +92,7 @@ static void kraken_remove_device_files(struct usb_interface *interface)
 {
 	kraken_driver_remove_device_files(interface);
 
+	device_remove_file(&interface->dev, &dev_attr_update_indicator);
 	device_remove_file(&interface->dev, &dev_attr_update_interval);
 }
 
@@ -104,6 +125,9 @@ static void kraken_update_work(struct work_struct *update_work)
 	struct usb_kraken *kraken
 		= container_of(update_work, struct usb_kraken, update_work);
 	kraken->update_retval = kraken_driver_update(kraken);
+	// tell any waiting indicators that the update has finished
+	kraken->update_indicator_condition = true;
+	wake_up_interruptible_all(&kraken->update_indicator_waitqueue);
 }
 
 int kraken_probe(struct usb_interface *interface,
@@ -130,6 +154,9 @@ int kraken_probe(struct usb_interface *interface,
 	}
 
 	kraken->update_retval = 0;
+
+	init_waitqueue_head(&kraken->update_indicator_waitqueue);
+	kraken->update_indicator_condition = false;
 
 	kraken->update_interval = UPDATE_INTERVAL_DEFAULT;
 	hrtimer_init(&kraken->update_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
@@ -161,6 +188,8 @@ void kraken_disconnect(struct usb_interface *interface)
 	flush_workqueue(kraken->update_workqueue);
 	destroy_workqueue(kraken->update_workqueue);
 	hrtimer_cancel(&kraken->update_timer);
+	kraken->update_indicator_condition = true;
+	wake_up_all(&kraken->update_indicator_waitqueue);
 
 	kraken_remove_device_files(interface);
 	kraken_driver_disconnect(interface);

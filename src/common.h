@@ -7,6 +7,7 @@
 
 #include <linux/hrtimer.h>
 #include <linux/usb.h>
+#include <linux/wait.h>
 #include <linux/workqueue.h>
 
 struct kraken_driver_data;
@@ -21,9 +22,17 @@ struct usb_kraken {
 	struct kraken_driver_data *data;
 
 	int update_retval;
+
+	// any update indicators waiting for an update wait on this; updates
+	// wake everything on this up
+	struct wait_queue_head update_indicator_waitqueue;
+	// update indicators set this to false; updates set it to true
+	bool update_indicator_condition;
+
 	// a value of ktime_set(0, 0) indicates that updates are halted
 	ktime_t update_interval;
 	struct hrtimer update_timer;
+
 	struct workqueue_struct *update_workqueue;
 	struct work_struct update_work;
 };
