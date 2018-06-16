@@ -116,16 +116,13 @@ static ssize_t attr_percent_store(struct percent_data *data, struct device *dev,
                                   struct device_attribute *attr,
                                   const char *buf, size_t count)
 {
-	int ret;
 	struct percent_parser parser = {
 		.data = data,
 		.buf = buf,
 		.dev = dev,
 		.attr = attr->attr.name,
 	};
-	mutex_lock(&parser.data->mutex);
-	ret = percent_parser_parse(&parser);
-	mutex_unlock(&parser.data->mutex);
+	int ret = percent_parser_parse(&parser);
 	if (ret)
 		return -EINVAL;
 	return count;
@@ -157,16 +154,13 @@ static ssize_t attr_led_store(struct led_data *data, struct device *dev,
                               struct device_attribute *attr, const char *buf,
                               size_t count)
 {
-	int ret;
 	struct led_parser parser = {
 		.data = data,
 		.buf = buf,
 		.dev = dev,
 		.attr = attr->attr.name,
 	};
-	mutex_lock(&parser.data->mutex);
-	ret = led_parser_parse(&parser);
-	mutex_unlock(&parser.data->mutex);
+	int ret = led_parser_parse(&parser);
 	if (ret)
 		return -EINVAL;
 	return count;

@@ -377,7 +377,11 @@ static int led_parser_dynamic(struct led_parser *parser)
 int led_parser_parse(struct led_parser *parser)
 {
 	char update[WORD_LEN_MAX + 1];
-	int ret = str_scan_word(&parser->buf, update);
+	int ret;
+
+	mutex_lock(&parser->data->mutex);
+
+	ret = str_scan_word(&parser->buf, update);
 	if (ret) {
 		dev_warn(parser->dev, "%s: missing update type\n",
 		         parser->attr);
@@ -406,9 +410,11 @@ int led_parser_parse(struct led_parser *parser)
 
 	parser->data->value_prev = -1;
 	parser->data->batch_prev = NULL;
+	mutex_unlock(&parser->data->mutex);
 	return 0;
 
 error:
 	parser->data->update = LED_DATA_UPDATE_NONE;
+	mutex_unlock(&parser->data->mutex);
 	return ret;
 }

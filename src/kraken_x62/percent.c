@@ -270,7 +270,11 @@ int percent_parser_parse(struct percent_parser *parser)
 {
 	char type[WORD_LEN_MAX + 1];
 	char *source = type;
-	int ret = str_scan_word(&parser->buf, source);
+	int ret;
+
+	mutex_lock(&parser->data->mutex);
+
+	ret = str_scan_word(&parser->buf, source);
 	if (ret || strcasecmp(source, "temp_liquid") != 0) {
 		// NOTE: currently only temp_liquid is implemented as a source
 		dev_warn(parser->dev, "%s: missing dynamic value source\n",
@@ -315,9 +319,11 @@ int percent_parser_parse(struct percent_parser *parser)
 	parser->data->value_prev = -1;
 	parser->data->msg_prev = NULL;
 	parser->data->update = true;
+	mutex_unlock(&parser->data->mutex);
 	return 0;
 
 error:
 	parser->data->update = false;
+	mutex_unlock(&parser->data->mutex);
 	return ret;
 }
