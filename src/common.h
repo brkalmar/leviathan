@@ -29,12 +29,12 @@ struct usb_kraken {
 	// update indicators set this to false; updates set it to true
 	bool update_indicator_condition;
 
+	struct workqueue_struct *update_workqueue;
+	struct work_struct update_work;
+
 	// a value of ktime_set(0, 0) indicates that updates are halted
 	ktime_t update_interval;
 	struct hrtimer update_timer;
-
-	struct workqueue_struct *update_workqueue;
-	struct work_struct update_work;
 };
 
 /**

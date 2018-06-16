@@ -158,17 +158,17 @@ int kraken_probe(struct usb_interface *interface,
 	init_waitqueue_head(&kraken->update_indicator_waitqueue);
 	kraken->update_indicator_condition = false;
 
-	kraken->update_interval = UPDATE_INTERVAL_DEFAULT;
-	hrtimer_init(&kraken->update_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-	kraken->update_timer.function = &kraken_update_timer;
-	hrtimer_start(&kraken->update_timer, kraken->update_interval,
-	              HRTIMER_MODE_REL);
-
 	snprintf(workqueue_name, sizeof(workqueue_name),
 	         "%s_up", kraken_driver_name);
 	kraken->update_workqueue
 		= create_singlethread_workqueue(workqueue_name);
 	INIT_WORK(&kraken->update_work, &kraken_update_work);
+
+	kraken->update_interval = UPDATE_INTERVAL_DEFAULT;
+	hrtimer_init(&kraken->update_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	kraken->update_timer.function = &kraken_update_timer;
+	hrtimer_start(&kraken->update_timer, kraken->update_interval,
+	              HRTIMER_MODE_REL);
 
 	return 0;
 error_create_files:
@@ -185,9 +185,9 @@ void kraken_disconnect(struct usb_interface *interface)
 {
 	struct usb_kraken *kraken = usb_get_intfdata(interface);
 
+	hrtimer_cancel(&kraken->update_timer);
 	flush_workqueue(kraken->update_workqueue);
 	destroy_workqueue(kraken->update_workqueue);
-	hrtimer_cancel(&kraken->update_timer);
 	kraken->update_indicator_condition = true;
 	wake_up_all(&kraken->update_indicator_waitqueue);
 
