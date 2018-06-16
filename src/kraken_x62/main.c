@@ -116,13 +116,7 @@ static ssize_t attr_percent_store(struct percent_data *data, struct device *dev,
                                   struct device_attribute *attr,
                                   const char *buf, size_t count)
 {
-	struct percent_parser parser = {
-		.data = data,
-		.buf = buf,
-		.dev = dev,
-		.attr = attr->attr.name,
-	};
-	int ret = percent_parser_parse(&parser);
+	int ret = percent_data_parse(data, dev, attr->attr.name, buf);
 	if (ret)
 		return -EINVAL;
 	return count;

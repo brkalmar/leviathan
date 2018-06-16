@@ -21,29 +21,18 @@ struct percent_data {
 	u8 percent_min;
 	u8 percent_max;
 
+	struct percent_msg msg;
+	u8 prev;
 	bool update;
-	// called by the update function
-	struct dynamic_val value;
-	// msgs[val] is the message to send for value val
-	struct percent_msg msgs[DYNAMIC_VAL_MAX + 1];
-	s8 value_prev;
-	struct percent_msg *msg_prev;
 
 	struct mutex mutex;
 };
 
 void percent_data_init(struct percent_data *data, enum percent_msg_which which);
+int percent_data_parse(struct percent_data *data, struct device *dev,
+                       const char *attr, const char *buf);
 
 int kraken_x62_update_percent(struct usb_kraken *kraken,
                               struct percent_data *data);
-
-struct percent_parser {
-	struct percent_data *data;
-	const char *buf;
-	struct device *dev;
-	const char *attr;
-};
-
-int percent_parser_parse(struct percent_parser *parser);
 
 #endif  /* LEVIATHAN_X62_PERCENT_H_INCLUDED */
