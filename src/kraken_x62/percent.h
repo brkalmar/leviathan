@@ -1,7 +1,6 @@
 #ifndef LEVIATHAN_X62_PERCENT_H_INCLUDED
 #define LEVIATHAN_X62_PERCENT_H_INCLUDED
 
-#include "dynamic.h"
 #include "../common.h"
 
 #include <linux/mutex.h>
