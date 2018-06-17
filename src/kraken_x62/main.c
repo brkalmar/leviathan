@@ -3,7 +3,6 @@
 
 #include "driver_data.h"
 #include "led.h"
-#include "led_parser.h"
 #include "percent.h"
 #include "status.h"
 #include "../common.h"
@@ -148,13 +147,7 @@ static ssize_t attr_led_store(struct led_data *data, struct device *dev,
                               struct device_attribute *attr, const char *buf,
                               size_t count)
 {
-	struct led_parser parser = {
-		.data = data,
-		.buf = buf,
-		.dev = dev,
-		.attr = attr->attr.name,
-	};
-	int ret = led_parser_parse(&parser);
+	int ret = led_data_parse(data, dev, attr->attr.name, buf);
 	if (ret)
 		return -EINVAL;
 	return count;
