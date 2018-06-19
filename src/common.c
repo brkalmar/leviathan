@@ -60,8 +60,8 @@ static ssize_t update_indicator_show(struct device *dev,
 	struct usb_kraken *kraken = usb_get_intfdata(to_usb_interface(dev));
 	int ret;
 	kraken->update_indicator_condition = false;
-	ret = !wait_event_freezable(kraken->update_indicator_waitqueue,
-	                            kraken->update_indicator_condition);
+	ret = !wait_event_interruptible(kraken->update_indicator_waitqueue,
+	                                kraken->update_indicator_condition);
 	return scnprintf(buf, PAGE_SIZE, "%d\n", ret);
 }
 
