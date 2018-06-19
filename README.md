@@ -117,6 +117,13 @@ $ cat /sys/bus/usb/drivers/$DRIVER/$DEVICE/update_interval
 $ echo $INTERVAL > /sys/bus/usb/drivers/$DRIVER/$DEVICE/update_interval
 ```
 
+Module parameter `update_interval` can also be used to set the update interval at module load time.
+Like the attribute, it is in milliseconds, and anything below the minimum of 500 is changed to 500.
+A special value of 0 indicates that the USB update cycle is not to be started and no updates are to be sent.
+```Shell
+$ sudo insmod $DRIVER update_interval=$INTERVAL
+```
+
 ## Syncing to the updates
 Attribute `update_indicator` is a special read-only attribute.
 Its purpose is to allow userspace programs to sync their actions to directly after the driver updates; it's not very useful for users handling the driver attributes manually.

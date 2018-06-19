@@ -5,13 +5,14 @@
 
 #include <linux/freezer.h>
 #include <linux/hrtimer.h>
+#include <linux/moduleparam.h>
 #include <linux/slab.h>
 #include <linux/usb.h>
 #include <linux/wait.h>
 #include <linux/workqueue.h>
 
-#define UPDATE_INTERVAL_DEFAULT (ms_to_ktime(1000))
-#define UPDATE_INTERVAL_MIN     (ms_to_ktime(500))
+#define UPDATE_INTERVAL_DEFAULT_MS ((u64) 1000)
+#define UPDATE_INTERVAL_MIN_MS     ((u64) 500)
 
 static ssize_t update_interval_show(struct device *dev,
                                     struct device_attribute *attr, char *buf)
@@ -40,10 +41,8 @@ update_interval_store(struct device *dev, struct device_attribute *attr,
 	}
 	// interval not 0: save interval in kraken
 	interval_old = kraken->update_interval;
-	if (interval_ms < ktime_to_ms(UPDATE_INTERVAL_MIN))
-		kraken->update_interval = UPDATE_INTERVAL_MIN;
-	else
-		kraken->update_interval = ms_to_ktime(interval_ms);
+	kraken->update_interval = ms_to_ktime(
+		max(interval_ms, UPDATE_INTERVAL_MIN_MS));
 	// and restart updates if they'd been halted
 	if (ktime_compare(interval_old, ktime_set(0, 0)) == 0)
 		dev_info(dev, "restarting updates: interval set to non-0\n");
@@ -53,6 +52,11 @@ update_interval_store(struct device *dev, struct device_attribute *attr,
 }
 
 static DEVICE_ATTR_RW(update_interval);
+
+/* Initial value of attribute `update_interval`, settable as a parameter.
+ */
+static ulong update_interval_initial = UPDATE_INTERVAL_DEFAULT_MS;
+module_param_named(update_interval, update_interval_initial, ulong, 0);
 
 static ssize_t update_indicator_show(struct device *dev,
                                      struct device_attribute *attr, char *buf)
@@ -164,11 +168,19 @@ int kraken_probe(struct usb_interface *interface,
 		= create_singlethread_workqueue(workqueue_name);
 	INIT_WORK(&kraken->update_work, &kraken_update_work);
 
-	kraken->update_interval = UPDATE_INTERVAL_DEFAULT;
 	hrtimer_init(&kraken->update_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	kraken->update_timer.function = &kraken_update_timer;
-	hrtimer_start(&kraken->update_timer, kraken->update_interval,
-	              HRTIMER_MODE_REL);
+	if (update_interval_initial == 0) {
+		kraken->update_interval = ktime_set(0, 0);
+		dev_info(&interface->dev,
+		         "not starting updates: interval set to 0\n");
+	} else {
+		kraken->update_interval = ms_to_ktime(
+			max((u64) update_interval_initial,
+			    UPDATE_INTERVAL_MIN_MS));
+		hrtimer_start(&kraken->update_timer, kraken->update_interval,
+		              HRTIMER_MODE_REL);
+	}
 
 	return 0;
 error_create_files:
