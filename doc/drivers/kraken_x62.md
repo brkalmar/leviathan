@@ -65,7 +65,7 @@ led-attribute = "off" / cycles
 cycles = nr-cycles 1*WSP preset 1*WSP moving 1*WSP direction 1*WSP interval 1*WSP group-size 1*WSP COLORS
 
 nr-cycles = INTEGER
-preset = "*" / "alternating" / "breathing" / "covering_marquee" / "fading" / "fixed" / "load" / "marquee" / "pulse" / "spectrum_wave" / "tai_chi" / "water_cooler"
+preset = "alternating" / "breathing" / "covering_marquee" / "fading" / "fixed" / "load" / "marquee" / "pulse" / "spectrum_wave" / "tai_chi" / "water_cooler"
 moving = "*" / BOOLEAN
 direction = "*" / "forward" / "backward" / "*"
 interval = "*" / "slowest" / "slower" / "normal" / "faster" / "fastest"
