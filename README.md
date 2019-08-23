@@ -1,4 +1,5 @@
 # leviathan
+
 Linux device drivers that support controlling and monitoring NZXT Kraken water coolers
 
 NZXT is **NOT** involved in this project, do **NOT** contact them if your device is damaged while using this software.
@@ -23,43 +24,85 @@ A *[?]* indicates that the device should be compatible based on the product spec
 If you have an unsupported liquid cooler — whether it is present in the above list or not — and want to help out, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 # Installation
-Make sure the headers for the kernel you are running are installed.
 
-To build the drivers:
+The easiest method is using `dkms`, as it will make sure to rebuild and reinstall the modules on kernel upgrades.
+You can also build and install the modules manually, but this will not persist across kernel upgrades.
+
+## Using `dkms`
+
+First, make sure you have `dkms` and the headers for the kernel installed.
+
+The following command copies the source tree into `/usr/src`, builds the modules under `/var/lib/dkms`, and installs them under `/lib/modules/$VER-$ARCH`:
+```Shell
+sudo dkms install .
+```
+where `$VER-$ARCH` is the version of the currently running kernel, e.g. `4.16.0-2-amd64`.
+You can also install to other kernel versions like so:
+```Shell
+sudo dkms install . -k $VER/$ARCH
+```
+If all is successful, the drivers should be loaded and load on boot.
+
+To uninstall and remove the modules installed via `dkms`:
+```Shell
+sudo modprobe -r kraken kraken_x62
+sudo dkms remove leviathan/0.1.0 --all
+```
+
+See the `dkms` documentation for more info.
+
+## Manually
+
+First, make sure the headers for the kernel are installed.
+
+To build the drivers for the currently running kernel:
 ```Shell
 make
 ```
+Or to build for a specific kernel version:
+```Shell
+make KERNELRELEASE=$VER-$ARCH
+```
 
-To install the driver temporarily (until the next reboot):
+To install a driver temporarily (until the next reboot):
 ```Shell
 sudo insmod $DRIVER.ko
 ```
-where `$DRIVER` is the name of the driver, i.e. either `kraken` or `kraken_x62`.
+where `$DRIVER` is the name of the driver, either `kraken` or `kraken_x62`.
 
-To install the driver permanently across reboots:
+To install a driver permanently across reboots:
 ```Shell
-sudo cp $DRIVER.ko /lib/modules/$VERSION/kernel/drivers/usb && sudo depmod && sudo modprobe $DRIVER
+sudo cp $DRIVER.ko /lib/modules/$VER-$ARCH/kernel/drivers/usb/misc && sudo depmod && sudo modprobe $DRIVER
 ```
-where `$VERSION` is the kernel version you're using, e.g. `4.16.0-2-amd64`.
 After this, the driver should automatically load on boot.
 
-**Note**: This is not permanent across kernel versions.
-The process needs to be repeated whenever you upgrade your kernel — just move the `$DRIVER.ko` file into the new kernel version's `kernel/drivers/usb` directory and load with `modprobe`.
+# Troubleshooting
 
-## Checking the installation
+**If none of the following steps fixes the issue, consider reporting it as a bug.**
 
-Run
+First uninstall the modules as described above if you have installed them via `dkms`
+Then try installing the desired driver module manually using `insmod`.
+Confirm that it was successful by running `lsmod` and checking that the driver (either `kraken` or `kraken_x62`) is listed.
+
+Now run
 ```Shell
 sudo dmesg
 ```
 Near the bottom you should see `usbcore: registered new interface driver $DRIVER` or a similar message.
 If your cooler is connected, then directly above this line you should see `$DRIVER 1-7:1.0: Kraken connected` or similar.
-If you see both messages, the installation was successful, and there should be a directory for your cooler device's attributes in `/sys/bus/usb/drivers/$DRIVER`, e.g. `/sys/bus/usb/drivers/$DRIVER/1-7:1.0`.
+If you see both messages, there should be a directory for your cooler device's attributes in `/sys/bus/usb/drivers/$DRIVER`, e.g. `/sys/bus/usb/drivers/$DRIVER/1-7:1.0`.
 
-## Troubleshooting `kraken_x62`
+If you don't see any such messages in `dmesg` then something went wrong within the driver.
+If you see a long, scary error message from the kernel (stacktrace, registry dump, etc.), the driver crashed and your kernel is in an invalid state; you should restart your computer before doing anything else (also consider doing any further testing of the driver in a virtual machine so you won't have to restart after each crash).
 
-The most common issue with `kraken_x62` is the device not connecting after installation.
-This is usually caused by module `usbhid` being already connected to the cooler.
+If you see the `registered new interface driver` message but not the `Kraken connected` message, it is probably one of three possibilities:
+* The cooler is not connected properly to the motherboard: check if it's connected properly / try reconnecting it.
+* The cooler is not supported by the driver: see [CONTRIBUTING.md](CONTRIBUTING.md).
+* Another kernel USB module is already connected to the cooler, so the driver cannot connect to it: see the following section.
+
+## Another module already connected
+
+A common issue with `kraken_x62` is the device not connecting after installation, usually caused by module `usbhid` being already connected to the cooler.
 To fix it, create a file `/etc/modprobe.d/usbhid-kraken-ignore.conf` with the contents
 ```
 # 1e71:170e is the NZXT Kraken X*2 coolers
@@ -86,17 +129,8 @@ sudo modprobe -r kraken_x62; sudo modprobe kraken_x62
 ```
 depending on how it was installed.
 
-## Troubleshooting the general case
-
-If you don't see any messages about the `$DRIVER` in `dmesg` then something went wrong and you should consider reporting it as a bug.
-If you see a long, scary error message from the kernel (stacktrace, registry dump, etc.), the driver crashed and your kernel is in an invalid state; you should restart your computer before doing anything else (also consider doing any further testing of the driver in a virtual machine so you won't have to restart after each crash).
-
-If you see the `registered new interface driver` message but not the `Kraken connected` or similar message, it is probably one of three possibilities:
-* The cooler is not connected or not connected properly to the motherboard: check if it's connected properly / try reconnecting it.
-* The cooler is not supported by the driver: see [CONTRIBUTING.md](CONTRIBUTING.md).
-* Another kernel USB module is already connected to the cooler, so the driver cannot connect to it: see [section Troubleshooting `kraken_x62`](#troubleshooting-kraken_x62).
-
 # Usage
+
 Each driver can be controlled with device files under `/sys/bus/usb/drivers/$DRIVER`, where `$DRIVER` is the driver name.
 Each attribute `$ATTRIBUTE` for a device `$DEVICE` is exposed to the user through the file `/sys/bus/usb/drivers/$DRIVER/$DEVICE/$ATTRIBUTE`.
 
@@ -107,6 +141,7 @@ In my case, there's only one Kraken connected.
 ```
 
 ## Changing the update interval
+
 Attribute `update_interval` is the number of milliseconds elapsed between successive USB update messages.
 This is mainly useful for debugging; you probably don't need to change it from the default value.
 The minimum interval is 500 ms — anything smaller is silently changed to 500.
@@ -125,6 +160,7 @@ $ sudo insmod $DRIVER update_interval=$INTERVAL
 ```
 
 ## Syncing to the updates
+
 Attribute `update_indicator` is a special read-only attribute.
 Its purpose is to allow userspace programs to sync their actions to directly after the driver updates; it's not very useful for users handling the driver attributes manually.
 When read, it blocks the read until the next update is finished (or the waiting task has been interrupted).

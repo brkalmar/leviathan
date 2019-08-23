@@ -1,3 +1,5 @@
+KERNELRELEASE = $(shell uname -r)
+
 obj-m += kraken.o
 kraken-objs := src/kraken/main.o
 kraken-objs += src/common.o
@@ -11,7 +13,7 @@ kraken_x62-objs += src/common.o
 kraken_x62-objs += src/util.o
 
 all:
-	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
+	$(MAKE) -C /lib/modules/$(KERNELRELEASE)/build M=$(PWD) modules
 
 clean:
-	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
+	$(MAKE) -C /lib/modules/$(KERNELRELEASE)/build M=$(PWD) clean
