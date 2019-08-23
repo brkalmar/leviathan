@@ -372,4 +372,6 @@ const char *kraken_driver_name = DRIVER_NAME;
 
 module_usb_driver(kraken_x61_driver);
 
+MODULE_DESCRIPTION("driver for 2433:b200 devices (NZXT Kraken X61)");
 MODULE_LICENSE("GPL");
+MODULE_VERSION("0.1.1");

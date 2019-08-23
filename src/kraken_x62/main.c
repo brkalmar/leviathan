@@ -374,3 +374,4 @@ module_usb_driver(kraken_x62_driver);
 
 MODULE_DESCRIPTION("driver for 1e71:170e devices (NZXT Kraken X62)");
 MODULE_LICENSE("GPL");
+MODULE_VERSION("0.2.0");
