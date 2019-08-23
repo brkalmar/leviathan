@@ -13,15 +13,75 @@ Also, while it doesn't seem like the hardware could be damaged by silly USB mess
   * NZXT Kraken X41
   * NZXT Kraken X31 (Only for controlling the fan/pump speed, since there's no controllable LED on the device)
 * Driver `kraken_x62` (for Vendor/Product ID `1e71:170e`)
-  * NZXT Kraken X72 *[?]*
+  * NZXT Kraken X72 *(?)*
   * NZXT Kraken X62
-  * NZXT Kraken X52 *[?]*
+  * NZXT Kraken X52 *(?)*
   * NZXT Kraken X42
-  * NZXT Kraken M22 *[?]*
+  * NZXT Kraken M22 *(?)*
 
-A *[?]* indicates that the device should be compatible based on the product specifications, but has not yet been tested with the driver and is therefore currently unsupported.
+A *(?)* indicates that the device should be compatible based on the product specifications, but has not yet been tested with the driver and is therefore currently unsupported.
 
 If you have an unsupported liquid cooler — whether it is present in the above list or not — and want to help out, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+# Usage
+
+The drivers can be controlled directly by the end-user, but only provide the most basic functionality.
+Features like a friendly user interface, dynamic updates, etc. are left to frontends.
+
+Each driver can be controlled with device files under `/sys/bus/usb/drivers/$DRIVER`, where `$DRIVER` is the driver name.
+Each attribute `$ATTRIBUTE` for a device `$DEVICE` is exposed to the user through the file `/sys/bus/usb/drivers/$DRIVER/$DEVICE/$ATTRIBUTE`.
+
+Find the symbolic links that point to the connected compatible devices.
+In my case, there's only one Kraken connected.
+```Shell
+/sys/bus/usb/drivers/kraken/2-1:1.0 -> ../../../../devices/pci0000:00/0000:00:06.0/usb2/2-1/2-1:1.0
+```
+
+## Common attributes
+
+### Update interval
+
+Attribute `update_interval` is the number of milliseconds elapsed between successive USB updates.
+Every update, the driver requests a status update and sends the changed values for any attributes which have been written to since the last update.
+
+This is mainly useful for debugging; you probably don't need to change it from the default value.
+The minimum interval is 500 ms — anything smaller is silently changed to 500.
+A special value of 0 indicates that no USB updates are sent.
+```Shell
+$ cat /sys/bus/usb/drivers/$DRIVER/$DEVICE/update_interval
+1000
+$ echo $INTERVAL > /sys/bus/usb/drivers/$DRIVER/$DEVICE/update_interval
+```
+
+Module parameter `update_interval` can also be used to set the update interval at module load time.
+Like the attribute, it is in milliseconds, and anything below the minimum of 500 is changed to 500.
+A special value of 0 indicates that the USB update cycle is not to be started and no updates are to be sent.
+```Shell
+$ sudo insmod $DRIVER update_interval=$INTERVAL
+```
+
+### Syncing to the updates
+
+Attribute `update_sync` is a special read-only attribute.
+When read, it blocks the read until the next update is finished (or the waiting task has been interrupted).
+Its purpose is to allow userspace programs to sync their actions to directly after the driver updates; it's not useful for users handling the driver attributes directly.
+A frontend program may run in the following loop, synchronizing with the driver and thereby avoiding too frequent/infrequent reads/writes:
+1. read `update_sync`,
+2. read any attributes it needs,
+3. write to any attributes it needs (based on the up-to-date info).
+
+The attribute's value is `1` if the next update has finished, `0` if the waiting task has been interrupted.
+```Shell
+$ time -p cat /sys/bus/usb/drivers/$DRIVER/$DEVICE/update_sync
+1
+real 0.77
+user 0.00
+sys 0.00
+```
+
+## Driver-specific attributes
+
+See the files in [doc/drivers/](doc/drivers/).
 
 # Installation
 
@@ -128,51 +188,3 @@ or
 sudo modprobe -r kraken_x62; sudo modprobe kraken_x62
 ```
 depending on how it was installed.
-
-# Usage
-
-Each driver can be controlled with device files under `/sys/bus/usb/drivers/$DRIVER`, where `$DRIVER` is the driver name.
-Each attribute `$ATTRIBUTE` for a device `$DEVICE` is exposed to the user through the file `/sys/bus/usb/drivers/$DRIVER/$DEVICE/$ATTRIBUTE`.
-
-Find the symbolic links that point to the connected compatible devices.
-In my case, there's only one Kraken connected.
-```Shell
-/sys/bus/usb/drivers/$DRIVER/2-1:1.0 -> ../../../../devices/pci0000:00/0000:00:06.0/usb2/2-1/2-1:1.0
-```
-
-## Changing the update interval
-
-Attribute `update_interval` is the number of milliseconds elapsed between successive USB update messages.
-This is mainly useful for debugging; you probably don't need to change it from the default value.
-The minimum interval is 500 ms — anything smaller is silently changed to 500.
-A special value of 0 indicates that no USB updates are sent.
-```Shell
-$ cat /sys/bus/usb/drivers/$DRIVER/$DEVICE/update_interval
-1000
-$ echo $INTERVAL > /sys/bus/usb/drivers/$DRIVER/$DEVICE/update_interval
-```
-
-Module parameter `update_interval` can also be used to set the update interval at module load time.
-Like the attribute, it is in milliseconds, and anything below the minimum of 500 is changed to 500.
-A special value of 0 indicates that the USB update cycle is not to be started and no updates are to be sent.
-```Shell
-$ sudo insmod $DRIVER update_interval=$INTERVAL
-```
-
-## Syncing to the updates
-
-Attribute `update_indicator` is a special read-only attribute.
-Its purpose is to allow userspace programs to sync their actions to directly after the driver updates; it's not very useful for users handling the driver attributes manually.
-When read, it blocks the read until the next update is finished (or the waiting task has been interrupted).
-It's value is `1` if the next update has finished, `0` if the waiting task has been interrupted.
-```Shell
-$ time -p cat /sys/bus/usb/drivers/$DRIVER/$DEVICE/update_indicator
-1
-real 0.77
-user 0.00
-sys 0.00
-```
-
-## Driver-specific attributes
-
-For documentation of the driver-specific attributes, see the files in [doc/drivers/](doc/drivers/).
