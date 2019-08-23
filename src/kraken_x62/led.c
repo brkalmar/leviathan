@@ -108,10 +108,6 @@ static bool led_msg_preset_is_legal(const struct led_msg *msg,
 static int led_moving_from_str(bool *moving, const char *str)
 {
 	int ret;
-	if (strcasecmp(str, "*") == 0) {
-		*moving = LED_MOVING_DEFAULT;
-		return 0;
-	}
 	ret = kstrtobool(str, moving);
 	return ret;
 }
@@ -143,10 +139,6 @@ enum led_direction {
 static int led_direction_from_str(enum led_direction *direction,
                                   const char *str)
 {
-	if (strcasecmp(str, "*") == 0) {
-		*direction = LED_DIRECTION_DEFAULT;
-		return 0;
-	}
 	if (strcasecmp(str, "forward") == 0)
 		*direction = LED_DIRECTION_CLOCKWISE;
 	else if (strcasecmp(str, "backward") == 0)
@@ -189,10 +181,6 @@ enum led_interval {
 
 static int led_interval_from_str(enum led_interval *interval, const char *str)
 {
-	if (strcasecmp(str, "*") == 0) {
-		*interval = LED_INTERVAL_DEFAULT;
-		return 0;
-	}
 	if (strcasecmp(str, "slowest") == 0)
 		*interval = LED_INTERVAL_SLOWEST;
 	else if (strcasecmp(str, "slower") == 0)
@@ -243,10 +231,6 @@ static int led_group_size_from_str(u8 *group_size, const char *str)
 {
 	int ret;
 	unsigned int n;
-	if (strcasecmp(str, "*") == 0) {
-		*group_size = LED_GROUP_SIZE_DEFAULT;
-		return 0;
-	}
 	ret = kstrtouint(str, 0, &n);
 	if (ret || n < LED_GROUP_SIZE_MIN || n > LED_GROUP_SIZE_MAX)
 		return ret ? ret : 1;
@@ -407,7 +391,7 @@ static int parse_preset_check_len(
 static int parse_preset(struct led_batch *batch, struct device *dev,
                         const char *attr, const char **buf)
 {
-	char preset_str[WORD_LEN_MAX + 1];
+	char preset_str[WORD_LEN_MAX];
 	enum led_preset preset;
 	u8 i;
 	int ret = str_scan_word(buf, preset_str);
@@ -436,7 +420,7 @@ static int parse_preset(struct led_batch *batch, struct device *dev,
 static int parse_moving(struct led_batch *batch, struct device *dev,
                         const char *attr, const char **buf)
 {
-	char moving_str[WORD_LEN_MAX + 1];
+	char moving_str[WORD_LEN_MAX];
 	bool moving;
 	u8 i;
 	int ret = str_scan_word(buf, moving_str);
@@ -462,7 +446,7 @@ static int parse_moving(struct led_batch *batch, struct device *dev,
 static int parse_direction(struct led_batch *batch, struct device *dev,
                            const char *attr, const char **buf)
 {
-	char direction_str[WORD_LEN_MAX + 1];
+	char direction_str[WORD_LEN_MAX];
 	enum led_direction direction;
 	u8 i;
 	int ret = str_scan_word(buf, direction_str);
@@ -489,7 +473,7 @@ static int parse_direction(struct led_batch *batch, struct device *dev,
 static int parse_interval(struct led_batch *batch, struct device *dev,
                           const char *attr, const char **buf)
 {
-	char interval_str[WORD_LEN_MAX + 1];
+	char interval_str[WORD_LEN_MAX];
 	enum led_interval interval;
 	u8 i;
 	int ret = str_scan_word(buf, interval_str);
@@ -515,7 +499,7 @@ static int parse_interval(struct led_batch *batch, struct device *dev,
 static int parse_group_size(struct led_batch *batch, struct device *dev,
                             const char *attr, const char **buf)
 {
-	char group_size_str[WORD_LEN_MAX + 1];
+	char group_size_str[WORD_LEN_MAX];
 	u8 group_size;
 	u8 i;
 	int ret = str_scan_word(buf, group_size_str);
@@ -540,10 +524,29 @@ static int parse_group_size(struct led_batch *batch, struct device *dev,
 	return 0;
 }
 
+static int parse_cycles(struct led_batch *batch, struct device *dev,
+                        const char *attr, const char **buf)
+{
+	char len_str[WORD_LEN_MAX];
+	unsigned int len;
+	int ret = str_scan_word(buf, len_str);
+	if (ret) {
+		dev_warn(dev, "%s: missing cycles\n", attr);
+		return ret;
+	}
+	ret = kstrtouint(len_str, 0, &len);
+	if (ret || len < 1 || len > LED_BATCH_CYCLES_SIZE) {
+		dev_warn(dev, "%s: invalid cycles %s\n", attr, len_str);
+		return ret ? ret : 1;
+	}
+	batch->len = len;
+	return 0;
+}
+
 static int parse_color_logo(struct led_msg *msg, struct device *dev,
                             const char *attr, const char **buf)
 {
-	char color_str[WORD_LEN_MAX + 1];
+	char color_str[WORD_LEN_MAX];
 	struct led_color color;
 	int ret = str_scan_word(buf, color_str);
 	if (ret) {
@@ -562,7 +565,7 @@ static int parse_color_logo(struct led_msg *msg, struct device *dev,
 static int parse_colors_ring(struct led_msg *msg, struct device *dev,
                              const char *attr, const char **buf)
 {
-	char color_str[WORD_LEN_MAX + 1];
+	char color_str[WORD_LEN_MAX];
 	struct led_color colors[LED_MSG_COLORS_RING];
 	size_t i;
 	int ret;
@@ -605,50 +608,14 @@ static int parse_colors(struct led_msg *msg, struct device *dev,
 	return ret;
 }
 
-static int parse_batch_off(struct led_batch *batch)
-{
-	struct led_color colors[LED_MSG_COLORS_RING];
-
-	struct led_msg *msg = &batch->cycles[0];
-	led_msg_preset(msg, LED_PRESET_FIXED);
-	led_msg_moving(msg, LED_MOVING_DEFAULT);
-	led_msg_direction(msg, LED_DIRECTION_DEFAULT);
-	led_msg_interval(msg, LED_INTERVAL_DEFAULT);
-	led_msg_group_size(msg, LED_GROUP_SIZE_DEFAULT);
-
-	// off = all-black
-	memset(colors, 0x00, sizeof(colors));
-	led_msg_color_logo(msg, &colors[0]);
-	led_msg_colors_ring(msg, colors);
-
-	batch->len = 1;
-	return 0;
-}
-
 static int parse_batch(struct led_batch *batch, struct device *dev,
                        const char *attr, const char **buf)
 {
-	char len_str[WORD_LEN_MAX + 1];
-	unsigned int len;
 	size_t i;
+	int ret;
 
-	int ret = str_scan_word(buf, len_str);
-	if (ret) {
-		dev_warn(dev, "%s: missing nr of cycles\n", attr);
-		return ret;
-	}
-	if (strcasecmp(len_str, "off") == 0) {
-		ret = parse_batch_off(batch);
-		return ret;
-	}
-	ret = kstrtouint(len_str, 0, &len);
-	if (ret || len < 1 || len > LED_BATCH_CYCLES_SIZE) {
-		dev_warn(dev, "%s: invalid nr of cycles %s\n", attr, len_str);
-		return ret ? ret : 1;
-	}
-	batch->len = len;
-
-	if ((ret = parse_preset(batch, dev, attr, buf)) ||
+	if ((ret = parse_cycles(batch, dev, attr, buf)) ||
+	    (ret = parse_preset(batch, dev, attr, buf)) ||
 	    (ret = parse_moving(batch, dev, attr, buf)) ||
 	    (ret = parse_direction(batch, dev, attr, buf)) ||
 	    (ret = parse_interval(batch, dev, attr, buf)) ||
@@ -666,7 +633,6 @@ static int parse_batch(struct led_batch *batch, struct device *dev,
 int led_data_parse(struct led_data *data, struct device *dev, const char *attr,
                    const char *buf)
 {
-	char rest[WORD_LEN_MAX + 1];
 	int ret;
 
 	mutex_lock(&data->mutex);
@@ -674,10 +640,9 @@ int led_data_parse(struct led_data *data, struct device *dev, const char *attr,
 	ret = parse_batch(&data->batch, dev, attr, &buf);
 	if (ret)
 		goto error;
-	ret = str_scan_word(&buf, rest);
-	if (!ret) {
-		dev_warn(dev, "%s: unrecognized data left in buffer: %s...\n",
-		         attr, rest);
+	if (buf[0] != '\0') {
+		dev_warn(dev, "%s: unrecognized data left in buffer: `%s'\n",
+		         attr, buf);
 		ret = 1;
 		goto error;
 	}

@@ -70,7 +70,7 @@ void percent_data_init(struct percent_data *data, enum percent_msg_which which)
 int percent_data_parse(struct percent_data *data, struct device *dev,
                        const char *attr, const char *buf)
 {
-	char percent_str[WORD_LEN_MAX + 1];
+	char percent_str[WORD_LEN_MAX];
 	unsigned int percent_ui;
 	u8 percent;
 
@@ -84,10 +84,9 @@ int percent_data_parse(struct percent_data *data, struct device *dev,
 		dev_warn(dev, "%s: invalid percent %s\n", attr, percent_str);
 		goto error;
 	}
-	ret = str_scan_word(&buf, percent_str);
-	if (!ret) {
-		dev_warn(dev, "%s: unrecognized data left in buffer: %s...\n",
-		         attr, percent_str);
+	if (buf[0] != '\0') {
+		dev_warn(dev, "%s: unrecognized data left in buffer: `%s'\n",
+		         attr, buf);
 		ret = 1;
 		goto error;
 	}
