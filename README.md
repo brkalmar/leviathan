@@ -28,14 +28,13 @@ If you have an unsupported liquid cooler — whether it is present in the above 
 The drivers can be controlled directly by the end-user, but only provide the most basic functionality.
 Features like a friendly user interface, dynamic updates, etc. are left to frontends.
 
-Each driver can be controlled with device files under `/sys/bus/usb/drivers/$DRIVER`, where `$DRIVER` is the driver name.
-Each attribute `$ATTRIBUTE` for a device `$DEVICE` is exposed to the user through the file `/sys/bus/usb/drivers/$DRIVER/$DEVICE/$ATTRIBUTE`.
-
+Each driver can be controlled with device files under `/sys/bus/usb/drivers/DRIVER`, where `DRIVER` is the driver name (`kraken` or `kraken_x62`).
 Find the symbolic links that point to the connected compatible devices.
 In my case, there's only one Kraken connected.
 ```Shell
 /sys/bus/usb/drivers/kraken/2-1:1.0 -> ../../../../devices/pci0000:00/0000:00:06.0/usb2/2-1/2-1:1.0
 ```
+Each attribute `ATTRIBUTE` for a device `DEVICE` is exposed to the user through the file `/sys/bus/usb/drivers/DRIVER/DEVICE/ATTRIBUTE`.
 
 ## Common attributes
 
@@ -48,16 +47,16 @@ This is mainly useful for debugging; you probably don't need to change it from t
 The minimum interval is 500 ms — anything smaller is silently changed to 500.
 A special value of 0 indicates that no USB updates are sent.
 ```Shell
-$ cat /sys/bus/usb/drivers/$DRIVER/$DEVICE/update_interval
+$ cat /sys/bus/usb/drivers/DRIVER/DEVICE/update_interval
 1000
-$ echo $INTERVAL > /sys/bus/usb/drivers/$DRIVER/$DEVICE/update_interval
+$ echo INTERVAL > /sys/bus/usb/drivers/DRIVER/DEVICE/update_interval
 ```
 
 Module parameter `update_interval` can also be used to set the update interval at module load time.
 Like the attribute, it is in milliseconds, and anything below the minimum of 500 is changed to 500.
 A special value of 0 indicates that the USB update cycle is not to be started and no updates are to be sent.
 ```Shell
-$ sudo insmod $DRIVER update_interval=$INTERVAL
+$ sudo insmod DRIVER update_interval=INTERVAL
 ```
 
 ### Syncing to the updates
@@ -72,7 +71,7 @@ A frontend program may run in the following loop, synchronizing with the driver 
 
 The attribute's value is `1` if the next update has finished, `0` if the waiting task has been interrupted.
 ```Shell
-$ time -p cat /sys/bus/usb/drivers/$DRIVER/$DEVICE/update_sync
+$ time -p cat /sys/bus/usb/drivers/DRIVER/DEVICE/update_sync
 1
 real 0.77
 user 0.00
@@ -92,23 +91,23 @@ You can also build and install the modules manually, but this will not persist a
 
 First, make sure you have `dkms` and the headers for the kernel installed.
 
-The following command copies the source tree into `/usr/src`, builds the modules under `/var/lib/dkms`, and installs them under `/lib/modules/$VER-$ARCH`:
+The following command copies the source tree into `/usr/src`, builds the modules under `/var/lib/dkms`, and installs them under `/lib/modules/VER-ARCH`:
 ```Shell
-sudo dkms install .
+$ sudo dkms install .
 ```
-where `$VER-$ARCH` is the version of the currently running kernel, e.g. `4.16.0-2-amd64`.
+where `VER-ARCH` is the version of the currently running kernel, e.g. `4.16.0-2-amd64`.
 You can also install to other kernel versions like so:
 ```Shell
-sudo dkms install . -k $VER/$ARCH
+$ sudo dkms install . -k VER/ARCH
 ```
 If all is successful, the drivers should be loaded and load on boot.
 
 To uninstall and remove the modules installed via `dkms`:
 ```Shell
-sudo modprobe -r kraken kraken_x62
-sudo dkms remove leviathan/$X.$Y.$Z --all
+$ sudo modprobe -r kraken kraken_x62
+$ sudo dkms remove leviathan/X.Y.Z --all
 ```
-where `$X.$Y.$Z` is the version of `leviathan` to remove.
+where `X.Y.Z` is the version of `leviathan` to remove.
 
 See the `dkms` documentation for more info.
 
@@ -118,22 +117,22 @@ First, make sure the headers for the kernel are installed.
 
 To build the drivers for the currently running kernel:
 ```Shell
-make
+$ make
 ```
 Or to build for a specific kernel version:
 ```Shell
-make KERNELRELEASE=$VER-$ARCH
+$ make KERNELRELEASE=VER-ARCH
 ```
 
 To install a driver temporarily (until the next reboot):
 ```Shell
-sudo insmod $DRIVER.ko
+$ sudo insmod DRIVER.ko
 ```
-where `$DRIVER` is the name of the driver, either `kraken` or `kraken_x62`.
+where `DRIVER` is the name of the driver, either `kraken` or `kraken_x62`.
 
 To install a driver permanently across reboots:
 ```Shell
-sudo cp $DRIVER.ko /lib/modules/$VER-$ARCH/kernel/drivers/usb/misc && sudo depmod && sudo modprobe $DRIVER
+$ sudo cp DRIVER.ko /lib/modules/VER-ARCH/kernel/drivers/usb/misc && sudo depmod && sudo modprobe DRIVER
 ```
 After this, the driver should automatically load on boot.
 
@@ -147,11 +146,11 @@ Confirm that it was successful by running `lsmod` and checking that the driver (
 
 Now run
 ```Shell
-sudo dmesg
+$ sudo dmesg
 ```
-Near the bottom you should see `usbcore: registered new interface driver $DRIVER` or a similar message.
-If your cooler is connected, then directly above this line you should see `$DRIVER 1-7:1.0: Kraken connected` or similar.
-If you see both messages, there should be a directory for your cooler device's attributes in `/sys/bus/usb/drivers/$DRIVER`, e.g. `/sys/bus/usb/drivers/$DRIVER/1-7:1.0`.
+Near the bottom you should see `usbcore: registered new interface driver DRIVER` or a similar message.
+If your cooler is connected, then directly above this line you should see `DRIVER 1-7:1.0: Kraken connected` or similar.
+If you see both messages, there should be a directory for your cooler device's attributes in `/sys/bus/usb/drivers/DRIVER`, e.g. `/sys/bus/usb/drivers/DRIVER/1-7:1.0`.
 
 If you don't see any such messages in `dmesg` then something went wrong within the driver.
 If you see a long, scary error message from the kernel (stacktrace, registry dump, etc.), the driver crashed and your kernel is in an invalid state; you should restart your computer before doing anything else (also consider doing any further testing of the driver in a virtual machine so you won't have to restart after each crash).
@@ -172,20 +171,20 @@ options usbhid quirks=0x1e71:0x170e:0x4
 ```
 Then reload the `usbhid` module
 ```Shell
-sudo modprobe -r usbhid && sudo modprobe usbhid
+$ sudo modprobe -r usbhid && sudo modprobe usbhid
 ```
 (You should be careful unloading USB modules as it may make your USB devices (keyboard etc.) unresponsive; therefore it's best to type all the commands out on a single line before executing them, like above.)
 Also update initramfs to keep the configuration across reboots
 ```Shell
-sudo update-initramfs -u
+$ sudo update-initramfs -u
 ```
 
 Finally reload the driver with
 ```Shell
-sudo rmmod kraken_x62; sudo insmod kraken_x62.ko
+$ sudo rmmod kraken_x62; sudo insmod kraken_x62.ko
 ```
 or
 ```Shell
-sudo modprobe -r kraken_x62; sudo modprobe kraken_x62
+$ sudo modprobe -r kraken_x62; sudo modprobe kraken_x62
 ```
 depending on how it was installed.
