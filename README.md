@@ -106,8 +106,9 @@ If all is successful, the drivers should be loaded and load on boot.
 To uninstall and remove the modules installed via `dkms`:
 ```Shell
 sudo modprobe -r kraken kraken_x62
-sudo dkms remove leviathan/0.1.0 --all
+sudo dkms remove leviathan/$X.$Y.$Z --all
 ```
+where `$X.$Y.$Z` is the version of `leviathan` to remove.
 
 See the `dkms` documentation for more info.
 
