@@ -7,7 +7,7 @@
 #include <linux/slab.h>
 #include <linux/usb.h>
 
-#define DRIVER_NAME "kraken"
+#define DRIVER_NAME "kraken_x61"
 
 struct kraken_driver_data {
 	// TODO: it would be nice to protect these messages from data races by
@@ -372,6 +372,6 @@ const char *kraken_driver_name = DRIVER_NAME;
 
 module_usb_driver(kraken_x61_driver);
 
-MODULE_DESCRIPTION("driver for 2433:b200 devices (NZXT Kraken X61)");
+MODULE_DESCRIPTION("driver for 2433:b200 devices (NZXT Kraken X*1)");
 MODULE_LICENSE("GPL");
 MODULE_VERSION("0.1.1");

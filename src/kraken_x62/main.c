@@ -372,6 +372,6 @@ const char *kraken_driver_name = DRIVER_NAME;
 
 module_usb_driver(kraken_x62_driver);
 
-MODULE_DESCRIPTION("driver for 1e71:170e devices (NZXT Kraken X62)");
+MODULE_DESCRIPTION("driver for 1e71:170e devices (NZXT Kraken X*2)");
 MODULE_LICENSE("GPL");
 MODULE_VERSION("0.2.0");

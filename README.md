@@ -8,7 +8,7 @@ Also, while it doesn't seem like the hardware could be damaged by silly USB mess
 
 # Supported devices
 
-* Driver `kraken` (for Vendor/Product ID `2433:b200`)
+* Driver `kraken_x61` (for Vendor/Product ID `2433:b200`)
   * NZXT Kraken X61 
   * NZXT Kraken X41
   * NZXT Kraken X31 (Only for controlling the fan/pump speed, since there's no controllable LED on the device)
@@ -28,11 +28,11 @@ If you have an unsupported liquid cooler — whether it is present in the above 
 The drivers can be controlled directly by the end-user, but only provide the most basic functionality.
 Features like a friendly user interface, dynamic updates, etc. are left to frontends.
 
-Each driver can be controlled with device files under `/sys/bus/usb/drivers/DRIVER`, where `DRIVER` is the driver name (`kraken` or `kraken_x62`).
+Each driver can be controlled with device files under `/sys/bus/usb/drivers/DRIVER`, where `DRIVER` is the driver name (`kraken_x61` or `kraken_x62`).
 Find the symbolic links that point to the connected compatible devices.
 In my case, there's only one Kraken connected.
 ```Shell
-/sys/bus/usb/drivers/kraken/2-1:1.0 -> ../../../../devices/pci0000:00/0000:00:06.0/usb2/2-1/2-1:1.0
+/sys/bus/usb/drivers/kraken_x61/2-1:1.0 -> ../../../../devices/pci0000:00/0000:00:06.0/usb2/2-1/2-1:1.0
 ```
 Each attribute `ATTRIBUTE` for a device `DEVICE` is exposed to the user through the file `/sys/bus/usb/drivers/DRIVER/DEVICE/ATTRIBUTE`.
 
@@ -104,7 +104,7 @@ If all is successful, the drivers should be loaded and load on boot.
 
 To uninstall and remove the modules installed via `dkms`:
 ```Shell
-$ sudo modprobe -r kraken kraken_x62
+$ sudo modprobe -r kraken_x61 kraken_x62
 $ sudo dkms remove leviathan/X.Y.Z --all
 ```
 where `X.Y.Z` is the version of `leviathan` to remove.
@@ -128,7 +128,7 @@ To install a driver temporarily (until the next reboot):
 ```Shell
 $ sudo insmod DRIVER.ko
 ```
-where `DRIVER` is the name of the driver, either `kraken` or `kraken_x62`.
+where `DRIVER` is the name of the driver, either `kraken_x61` or `kraken_x62`.
 
 To install a driver permanently across reboots:
 ```Shell
@@ -142,7 +142,7 @@ After this, the driver should automatically load on boot.
 
 First uninstall the modules as described above if you have installed them via `dkms`
 Then try installing the desired driver module manually using `insmod`.
-Confirm that it was successful by running `lsmod` and checking that the driver (either `kraken` or `kraken_x62`) is listed.
+Confirm that it was successful by running `lsmod` and checking that the driver (either `kraken_x61` or `kraken_x62`) is listed.
 
 Now run
 ```Shell
