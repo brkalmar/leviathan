@@ -62,15 +62,10 @@ extern void kraken_driver_disconnect(struct usb_interface *interface);
 extern int kraken_driver_update(struct usb_kraken *kraken);
 
 /**
- * Create driver-specific device attribute files.  Called from kraken_probe().
+ * Driver-specific device attribute file groups.  Created in kraken_probe() and
+ * removed in kraken_disconnect().
  */
-extern int kraken_driver_create_device_files(struct usb_interface *interface);
-
-/**
- * Remove driver-specific device attribute files.  Called from
- * kraken_disconnect().
- */
-extern void kraken_driver_remove_device_files(struct usb_interface *interface);
+extern const struct attribute_group *kraken_driver_groups[];
 
 int kraken_probe(struct usb_interface *interface,
                  const struct usb_device_id *id);

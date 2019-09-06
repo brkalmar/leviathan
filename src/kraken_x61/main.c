@@ -9,6 +9,8 @@
 
 #define DRIVER_NAME "kraken_x61"
 
+const char *kraken_driver_name = DRIVER_NAME;
+
 struct kraken_driver_data {
 	// TODO: it would be nice to protect these messages from data races by
 	// mutexes, like in kraken_x62.  They shouldn't happen frequently, and
@@ -255,56 +257,26 @@ static ssize_t show_fan(struct device *dev, struct device_attribute *attr, char 
 
 static DEVICE_ATTR(fan, S_IRUGO, show_fan, NULL);
 
-int kraken_driver_create_device_files(struct usb_interface *interface)
-{
-	int retval;
-	if ((retval = device_create_file(&interface->dev, &dev_attr_speed)))
-		goto error_speed;
-	if ((retval = device_create_file(&interface->dev, &dev_attr_color)))
-		goto error_color;
-	if ((retval = device_create_file(&interface->dev, &dev_attr_alternate_color)))
-		goto error_alternate_color;
-	if ((retval = device_create_file(&interface->dev, &dev_attr_interval)))
-		goto error_interval;
-	if ((retval = device_create_file(&interface->dev, &dev_attr_mode)))
-		goto error_mode;
-	if ((retval = device_create_file(&interface->dev, &dev_attr_temp)))
-		goto error_temp;
-	if ((retval = device_create_file(&interface->dev, &dev_attr_pump)))
-		goto error_pump;
-	if ((retval = device_create_file(&interface->dev, &dev_attr_fan)))
-		goto error_fan;
+static struct attribute *kraken_x61_group_attrs[] = {
+	&dev_attr_speed.attr,
+	&dev_attr_color.attr,
+	&dev_attr_alternate_color.attr,
+	&dev_attr_interval.attr,
+	&dev_attr_mode.attr,
+	&dev_attr_temp.attr,
+	&dev_attr_pump.attr,
+	&dev_attr_fan.attr,
+	NULL,
+};
 
-	return 0;
-error_fan:
-	device_remove_file(&interface->dev, &dev_attr_pump);
-error_pump:
-	device_remove_file(&interface->dev, &dev_attr_temp);
-error_temp:
-	device_remove_file(&interface->dev, &dev_attr_mode);
-error_mode:
-	device_remove_file(&interface->dev, &dev_attr_interval);
-error_interval:
-	device_remove_file(&interface->dev, &dev_attr_alternate_color);
-error_alternate_color:
-	device_remove_file(&interface->dev, &dev_attr_color);
-error_color:
-	device_remove_file(&interface->dev, &dev_attr_speed);
-error_speed:
-	return retval;
-}
+static struct attribute_group kraken_x61_group = {
+	.attrs = kraken_x61_group_attrs,
+};
 
-void kraken_driver_remove_device_files(struct usb_interface *interface)
-{
-	device_remove_file(&interface->dev, &dev_attr_fan);
-	device_remove_file(&interface->dev, &dev_attr_pump);
-	device_remove_file(&interface->dev, &dev_attr_temp);
-	device_remove_file(&interface->dev, &dev_attr_mode);
-	device_remove_file(&interface->dev, &dev_attr_interval);
-	device_remove_file(&interface->dev, &dev_attr_alternate_color);
-	device_remove_file(&interface->dev, &dev_attr_color);
-	device_remove_file(&interface->dev, &dev_attr_speed);
-}
+const struct attribute_group *kraken_driver_groups[] = {
+	&kraken_x61_group,
+	NULL,
+};
 
 int kraken_driver_probe(struct usb_interface *interface, const struct usb_device_id *id)
 {
@@ -367,8 +339,6 @@ static struct usb_driver kraken_x61_driver = {
 	.disconnect = kraken_disconnect,
 	.id_table   = kraken_x61_id_table,
 };
-
-const char *kraken_driver_name = DRIVER_NAME;
 
 module_usb_driver(kraken_x61_driver);
 

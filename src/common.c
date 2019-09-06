@@ -71,33 +71,43 @@ static ssize_t update_sync_show(struct device *dev,
 
 static DEVICE_ATTR_RO(update_sync);
 
-static int kraken_create_device_files(struct usb_interface *interface)
+static struct attribute *kraken_group_attrs[] = {
+	&dev_attr_update_interval.attr,
+	&dev_attr_update_sync.attr,
+	NULL,
+};
+
+static struct attribute_group kraken_group = {
+	.attrs = kraken_group_attrs,
+};
+
+static const struct attribute_group *kraken_groups[] = {
+	&kraken_group,
+	NULL,
+};
+
+static int kraken_create_groups(struct usb_interface *interface)
 {
 	int retval;
-	if ((retval = device_create_file(&interface->dev,
-	                                 &dev_attr_update_interval)))
-		goto error_update_interval;
-	if ((retval = device_create_file(&interface->dev,
-	                                 &dev_attr_update_sync)))
-		goto error_update_sync;
-	if ((retval = kraken_driver_create_device_files(interface)))
-		goto error_driver_files;
+
+	retval = device_add_groups(&interface->dev, kraken_groups);
+	if (retval)
+		goto error_groups;
+	retval = device_add_groups(&interface->dev, kraken_driver_groups);
+	if (retval)
+		goto error_driver_groups;
 
 	return 0;
-error_driver_files:
-	device_remove_file(&interface->dev, &dev_attr_update_sync);
-error_update_sync:
-	device_remove_file(&interface->dev, &dev_attr_update_sync);
-error_update_interval:
+error_driver_groups:
+	device_remove_groups(&interface->dev, kraken_groups);
+error_groups:
 	return retval;
 }
 
-static void kraken_remove_device_files(struct usb_interface *interface)
+static void kraken_remove_groups(struct usb_interface *interface)
 {
-	kraken_driver_remove_device_files(interface);
-
-	device_remove_file(&interface->dev, &dev_attr_update_sync);
-	device_remove_file(&interface->dev, &dev_attr_update_interval);
+	device_remove_groups(&interface->dev, kraken_driver_groups);
+	device_remove_groups(&interface->dev, kraken_groups);
 }
 
 static enum hrtimer_restart kraken_update_timer(struct hrtimer *update_timer)
@@ -150,7 +160,7 @@ int kraken_probe(struct usb_interface *interface,
 	retval = kraken_driver_probe(interface, id);
 	if (retval)
 		goto error_driver_probe;
-	retval = kraken_create_device_files(interface);
+	retval = kraken_create_groups(interface);
 	if (retval) {
 		dev_err(&interface->dev,
 		        "failed to create device files: %d\n", retval);
@@ -203,7 +213,7 @@ void kraken_disconnect(struct usb_interface *interface)
 	kraken->update_sync_condition = true;
 	wake_up_all(&kraken->update_sync_waitqueue);
 
-	kraken_remove_device_files(interface);
+	kraken_remove_groups(interface);
 	kraken_driver_disconnect(interface);
 
 	usb_set_intfdata(interface, NULL);
