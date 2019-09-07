@@ -27,14 +27,14 @@ static void percent_msg_set(struct percent_msg *msg, u8 percent)
 }
 
 static int percent_msg_update(struct percent_msg *msg,
-                              struct usb_kraken *kraken)
+                              struct kraken_data *kdata)
 {
 	int sent;
 	int ret = usb_interrupt_msg(
-		kraken->udev, usb_sndctrlpipe(kraken->udev, 1),
+		kdata->udev, usb_sndctrlpipe(kdata->udev, 1),
 		msg->msg, sizeof(msg->msg), &sent, 1000);
 	if (ret || sent != sizeof(msg->msg)) {
-		dev_err(&kraken->udev->dev,
+		dev_err(&kdata->udev->dev,
 		        "failed to set speed percent: I/O error\n");
 		return ret ? ret : 1;
 	}
@@ -113,7 +113,7 @@ error:
 	return ret;
 }
 
-int kraken_x62_update_percent(struct usb_kraken *kraken,
+int kraken_x62_update_percent(struct kraken_data *kdata,
                               struct percent_data *data)
 {
 	u8 curr;
@@ -126,7 +126,7 @@ int kraken_x62_update_percent(struct usb_kraken *kraken,
 	curr = percent_msg_get(&data->msg);
 	if (curr == data->prev)
 		goto error;
-	ret = percent_msg_update(&data->msg, kraken);
+	ret = percent_msg_update(&data->msg, kdata);
 	if (ret)
 		goto error;
 	data->prev = curr;

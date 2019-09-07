@@ -10,13 +10,15 @@
 #include <linux/wait.h>
 #include <linux/workqueue.h>
 
+/**
+ * Driver-specific data.  This struct is defined by the driver.
+ */
 struct kraken_driver_data;
 
 /**
  * The custom data stored in the interface, retrievable by usb_get_intfdata().
- * @data: the driver-specific data as a struct defined by the driver
  */
-struct usb_kraken {
+struct kraken_data {
 	struct usb_device *udev;
 	struct usb_interface *interface;
 	struct kraken_driver_data *data;
@@ -59,7 +61,7 @@ extern void kraken_driver_disconnect(struct usb_interface *interface);
 /**
  * The driver's update function, called every second.
  */
-extern int kraken_driver_update(struct usb_kraken *kraken);
+extern int kraken_driver_update(struct kraken_data *kdata);
 
 /**
  * Driver-specific device attribute file groups.  Created in kraken_probe() and

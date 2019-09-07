@@ -31,7 +31,7 @@ void percent_data_init(struct percent_data *data, enum percent_msg_which which);
 int percent_data_parse(struct percent_data *data, struct device *dev,
                        const char *attr, const char *buf);
 
-int kraken_x62_update_percent(struct usb_kraken *kraken,
+int kraken_x62_update_percent(struct kraken_data *kdata,
                               struct percent_data *data);
 
 #endif  /* LEVIATHAN_X62_PERCENT_H_INCLUDED */

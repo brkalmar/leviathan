@@ -41,6 +41,6 @@ void led_data_init(struct led_data *data, enum led_which which);
 int led_data_parse(struct led_data *data, struct device *dev, const char *attr,
                    const char *buf);
 
-int kraken_x62_update_led(struct usb_kraken *kraken, struct led_data *data);
+int kraken_x62_update_led(struct kraken_data *kdata, struct led_data *data);
 
 #endif  /* LEVIATHAN_X62_LED_H_INCLUDED */

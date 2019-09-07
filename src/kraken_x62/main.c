@@ -28,17 +28,17 @@ static void kraken_driver_data_init(struct kraken_driver_data *data)
 	led_data_init(&data->leds_sync, LED_WHICH_SYNC);
 }
 
-int kraken_driver_update(struct usb_kraken *kraken)
+int kraken_driver_update(struct kraken_data *kdata)
 {
-	struct kraken_driver_data *data = kraken->data;
+	struct kraken_driver_data *data = kdata->data;
 
 	int ret;
-	if ((ret = kraken_x62_update_status(kraken, &data->status)) ||
-	    (ret = kraken_x62_update_percent(kraken, &data->percent_fan)) ||
-	    (ret = kraken_x62_update_percent(kraken, &data->percent_pump)) ||
-	    (ret = kraken_x62_update_led(kraken, &data->led_logo)) ||
-	    (ret = kraken_x62_update_led(kraken, &data->leds_ring)) ||
-	    (ret = kraken_x62_update_led(kraken, &data->leds_sync)))
+	if ((ret = kraken_x62_update_status(kdata, &data->status)) ||
+	    (ret = kraken_x62_update_percent(kdata, &data->percent_fan)) ||
+	    (ret = kraken_x62_update_percent(kdata, &data->percent_pump)) ||
+	    (ret = kraken_x62_update_led(kdata, &data->led_logo)) ||
+	    (ret = kraken_x62_update_led(kdata, &data->leds_ring)) ||
+	    (ret = kraken_x62_update_led(kdata, &data->leds_sync)))
 		return ret;
 	return 0;
 }
@@ -46,8 +46,8 @@ int kraken_driver_update(struct usb_kraken *kraken)
 static ssize_t serial_no_show(struct device *dev, struct device_attribute *attr,
                               char *buf)
 {
-	struct usb_kraken *kraken = usb_get_intfdata(to_usb_interface(dev));
-	return scnprintf(buf, PAGE_SIZE, "%s\n", kraken->data->serial_number);
+	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
+	return scnprintf(buf, PAGE_SIZE, "%s\n", kdata->data->serial_number);
 }
 
 static DEVICE_ATTR_RO(serial_no);
@@ -55,8 +55,8 @@ static DEVICE_ATTR_RO(serial_no);
 static ssize_t temp_liquid_show(struct device *dev,
                                 struct device_attribute *attr, char *buf)
 {
-	struct usb_kraken *kraken = usb_get_intfdata(to_usb_interface(dev));
-	struct status_data *status = &kraken->data->status;
+	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
+	struct status_data *status = &kdata->data->status;
 	return scnprintf(buf, PAGE_SIZE,
 	                 "%u\n", status_data_temp_liquid(status));
 }
@@ -66,8 +66,8 @@ static DEVICE_ATTR_RO(temp_liquid);
 static ssize_t fan_rpm_show(struct device *dev, struct device_attribute *attr,
                             char *buf)
 {
-	struct usb_kraken *kraken = usb_get_intfdata(to_usb_interface(dev));
-	struct status_data *status = &kraken->data->status;
+	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
+	struct status_data *status = &kdata->data->status;
 	return scnprintf(buf, PAGE_SIZE, "%u\n", status_data_fan_rpm(status));
 }
 
@@ -76,8 +76,8 @@ static DEVICE_ATTR_RO(fan_rpm);
 static ssize_t pump_rpm_show(struct device *dev, struct device_attribute *attr,
                              char *buf)
 {
-	struct usb_kraken *kraken = usb_get_intfdata(to_usb_interface(dev));
-	struct status_data *status = &kraken->data->status;
+	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
+	struct status_data *status = &kdata->data->status;
 	return scnprintf(buf, PAGE_SIZE, "%u\n", status_data_pump_rpm(status));
 }
 
@@ -86,8 +86,8 @@ static DEVICE_ATTR_RO(pump_rpm);
 static ssize_t unknown_1_show(struct device *dev, struct device_attribute *attr,
                               char *buf)
 {
-	struct usb_kraken *kraken = usb_get_intfdata(to_usb_interface(dev));
-	struct status_data *status = &kraken->data->status;
+	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
+	struct status_data *status = &kdata->data->status;
 	return scnprintf(buf, PAGE_SIZE, "%u\n", status_data_unknown_1(status));
 }
 
@@ -96,8 +96,8 @@ static DEVICE_ATTR_RO(unknown_1);
 static ssize_t unknown_2_show(struct device *dev, struct device_attribute *attr,
                               char *buf)
 {
-	struct usb_kraken *kraken = usb_get_intfdata(to_usb_interface(dev));
-	struct status_data *status = &kraken->data->status;
+	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
+	struct status_data *status = &kdata->data->status;
 	return scnprintf(buf, PAGE_SIZE, "%u\n", status_data_unknown_2(status));
 }
 
@@ -106,8 +106,8 @@ static DEVICE_ATTR_RO(unknown_2);
 static ssize_t unknown_3_show(struct device *dev, struct device_attribute *attr,
                               char *buf)
 {
-	struct usb_kraken *kraken = usb_get_intfdata(to_usb_interface(dev));
-	struct status_data *status = &kraken->data->status;
+	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
+	struct status_data *status = &kdata->data->status;
 	return scnprintf(buf, PAGE_SIZE, "%u\n", status_data_unknown_3(status));
 }
 
@@ -127,8 +127,8 @@ static ssize_t fan_percent_store(struct device *dev,
                                  struct device_attribute *attr, const char *buf,
                                  size_t count)
 {
-	struct usb_kraken *kraken = usb_get_intfdata(to_usb_interface(dev));
-	return attr_percent_store(&kraken->data->percent_fan, dev, attr, buf,
+	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
+	return attr_percent_store(&kdata->data->percent_fan, dev, attr, buf,
 	                          count);
 }
 
@@ -138,8 +138,8 @@ static ssize_t pump_percent_store(struct device *dev,
                                   struct device_attribute *attr,
                                   const char *buf, size_t count)
 {
-	struct usb_kraken *kraken = usb_get_intfdata(to_usb_interface(dev));
-	return attr_percent_store(&kraken->data->percent_pump, dev, attr, buf,
+	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
+	return attr_percent_store(&kdata->data->percent_pump, dev, attr, buf,
 	                          count);
 }
 
@@ -158,8 +158,8 @@ static ssize_t attr_led_store(struct led_data *data, struct device *dev,
 static ssize_t led_logo_store(struct device *dev, struct device_attribute *attr,
                               const char *buf, size_t count)
 {
-	struct usb_kraken *kraken = usb_get_intfdata(to_usb_interface(dev));
-	return attr_led_store(&kraken->data->led_logo, dev, attr, buf, count);
+	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
+	return attr_led_store(&kdata->data->led_logo, dev, attr, buf, count);
 }
 
 static DEVICE_ATTR_WO(led_logo);
@@ -168,8 +168,8 @@ static ssize_t leds_ring_store(struct device *dev,
                                struct device_attribute *attr, const char *buf,
                                size_t count)
 {
-	struct usb_kraken *kraken = usb_get_intfdata(to_usb_interface(dev));
-	return attr_led_store(&kraken->data->leds_ring, dev, attr, buf, count);
+	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
+	return attr_led_store(&kdata->data->leds_ring, dev, attr, buf, count);
 }
 
 static DEVICE_ATTR_WO(leds_ring);
@@ -178,8 +178,8 @@ static ssize_t leds_sync_store(struct device *dev,
                                struct device_attribute *attr, const char *buf,
                                size_t count)
 {
-	struct usb_kraken *kraken = usb_get_intfdata(to_usb_interface(dev));
-	return attr_led_store(&kraken->data->leds_sync, dev, attr, buf, count);
+	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
+	return attr_led_store(&kdata->data->leds_sync, dev, attr, buf, count);
 }
 
 static DEVICE_ATTR_WO(leds_sync);
@@ -209,7 +209,7 @@ const struct attribute_group *kraken_driver_groups[] = {
 	NULL,
 };
 
-static int kraken_x62_initialize(struct usb_kraken *kraken,
+static int kraken_x62_initialize(struct kraken_data *kdata,
                                  char serial_number[])
 {
 	u8 len;
@@ -226,16 +226,16 @@ static int kraken_x62_initialize(struct usb_kraken *kraken,
 		goto error_data;
 
 	ret = usb_control_msg(
-		kraken->udev, usb_rcvctrlpipe(kraken->udev, 0),
+		kdata->udev, usb_rcvctrlpipe(kdata->udev, 0),
 		0x06, 0x80, 0x0303, 0x0409, data, data_size, 1000);
 	if (ret < 0) {
-		dev_err(&kraken->udev->dev,
+		dev_err(&kdata->udev->dev,
 		        "failed control message: %d\n", ret);
 		goto error_control_msg;
 	}
 	len = data[0] - 2;
 	if (ret < 2 || data[1] != 0x03 || len % 2 != 0) {
-		dev_err(&kraken->udev->dev,
+		dev_err(&kdata->udev->dev,
 		        "data received is invalid: %d, %u, %#02x\n",
 		        ret, data[0], data[1]);
 		ret = 1;
@@ -243,7 +243,7 @@ static int kraken_x62_initialize(struct usb_kraken *kraken,
 	}
 	len /= 2;
 	if (len > DATA_SERIAL_NUMBER_SIZE - 1) {
-		dev_err(&kraken->udev->dev,
+		dev_err(&kdata->udev->dev,
 		        "data received is too long: %u\n", len);
 		ret = 1;
 		goto error_control_msg;
@@ -253,7 +253,7 @@ static int kraken_x62_initialize(struct usb_kraken *kraken,
 		const u8 index_low = 2 + 2 * i;
 		serial_number[i] = data[index_low];
 		if (data[index_low + 1] != 0x00) {
-			dev_err(&kraken->udev->dev,
+			dev_err(&kdata->udev->dev,
 			        "serial number contains non-ASCII character: "
 			        "UTF-16 %#02x%02x, at index %u\n",
 			        data[index_low + 1], data[index_low],
@@ -275,17 +275,17 @@ int kraken_driver_probe(struct usb_interface *interface,
                         const struct usb_device_id *id)
 {
 	struct kraken_driver_data *data;
-	struct usb_kraken *kraken = usb_get_intfdata(interface);
+	struct kraken_data *kdata = usb_get_intfdata(interface);
 
 	int ret = -ENOMEM;
-	kraken->data = kzalloc(sizeof(*kraken->data), GFP_KERNEL | GFP_DMA);
-	if (kraken->data == NULL)
+	kdata->data = kzalloc(sizeof(*kdata->data), GFP_KERNEL | GFP_DMA);
+	if (kdata->data == NULL)
 		goto error_data;
-	data = kraken->data;
+	data = kdata->data;
 
 	kraken_driver_data_init(data);
 
-	ret = kraken_x62_initialize(kraken, data->serial_number);
+	ret = kraken_x62_initialize(kdata, data->serial_number);
 	if (ret) {
 		dev_err(&interface->dev, "failed to initialize: %d\n", ret);
 		goto error_init_message;
@@ -302,8 +302,8 @@ error_data:
 
 void kraken_driver_disconnect(struct usb_interface *interface)
 {
-	struct usb_kraken *kraken = usb_get_intfdata(interface);
-	struct kraken_driver_data *data = kraken->data;
+	struct kraken_data *kdata = usb_get_intfdata(interface);
+	struct kraken_driver_data *data = kdata->data;
 
 	kfree(data);
 

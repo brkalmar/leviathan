@@ -330,17 +330,17 @@ static void led_batch_init(struct led_batch *batch, enum led_which which)
 	}
 }
 
-static int led_batch_update(struct led_batch *batch, struct usb_kraken *kraken)
+static int led_batch_update(struct led_batch *batch, struct kraken_data *kdata)
 {
 	int ret, sent;
 	u8 i;
 	for (i = 0; i < batch->len; i++) {
 		ret = usb_interrupt_msg(
-			kraken->udev, usb_sndctrlpipe(kraken->udev, 1),
+			kdata->udev, usb_sndctrlpipe(kdata->udev, 1),
 			batch->cycles[i].msg, sizeof(batch->cycles[i].msg),
 			&sent, 1000);
 		if (ret || sent != sizeof(batch->cycles[i].msg)) {
-			dev_err(&kraken->udev->dev,
+			dev_err(&kdata->udev->dev,
 			        "failed to set LED cycle %u\n", i);
 			return ret ? ret : 1;
 		}
@@ -657,7 +657,7 @@ error:
 	return ret;
 }
 
-int kraken_x62_update_led(struct usb_kraken *kraken, struct led_data *data)
+int kraken_x62_update_led(struct kraken_data *kdata, struct led_data *data)
 {
 	int ret = 0;
 
@@ -668,7 +668,7 @@ int kraken_x62_update_led(struct usb_kraken *kraken, struct led_data *data)
 	// if same message as previously, no update necessary
 	if (memcmp(&data->batch, &data->prev, sizeof(data->batch)) == 0)
 		goto error;
-	ret = led_batch_update(&data->batch, kraken);
+	ret = led_batch_update(&data->batch, kdata);
 	if (ret)
 		goto error;
 	memcpy(&data->prev, &data->batch, sizeof(data->prev));

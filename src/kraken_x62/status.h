@@ -21,7 +21,7 @@ u8 status_data_unknown_1(struct status_data *data);
 u32 status_data_unknown_2(struct status_data *data);
 u16 status_data_unknown_3(struct status_data *data);
 
-int kraken_x62_update_status(struct usb_kraken *kraken,
+int kraken_x62_update_status(struct kraken_data *kdata,
                              struct status_data *data);
 
 #endif  /* LEVIATHAN_X62_STATUS_H_INCLUDED */

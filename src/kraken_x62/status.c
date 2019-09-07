@@ -83,19 +83,19 @@ u16 status_data_unknown_3(struct status_data *data)
 	return be16_to_cpu(unknown_3_be);
 }
 
-int kraken_x62_update_status(struct usb_kraken *kraken,
+int kraken_x62_update_status(struct kraken_data *kdata,
                              struct status_data *data)
 {
 	bool invalid;
 	int received;
 	int ret;
 	mutex_lock(&data->mutex);
-	ret = usb_interrupt_msg(kraken->udev, usb_rcvctrlpipe(kraken->udev, 1),
+	ret = usb_interrupt_msg(kdata->udev, usb_rcvctrlpipe(kdata->udev, 1),
 	                        data->msg, sizeof(data->msg), &received, 1000);
 	mutex_unlock(&data->mutex);
 
 	if (ret || received != sizeof(data->msg)) {
-		dev_err(&kraken->udev->dev,
+		dev_err(&kdata->udev->dev,
 		        "failed status update: I/O error\n");
 		return ret ? ret : 1;
 	}
@@ -106,7 +106,7 @@ int kraken_x62_update_status(struct usb_kraken *kraken,
 		char status_hex[sizeof(data->msg) * 3 + 1];
 		hex_dump_to_buffer(data->msg, sizeof(data->msg), 32, 1,
 		                   status_hex, sizeof(status_hex), false);
-		dev_err(&kraken->udev->dev,
+		dev_err(&kdata->udev->dev,
 		        "received invalid status message: %s\n", status_hex);
 		return 1;
 	}
