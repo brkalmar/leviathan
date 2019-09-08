@@ -98,6 +98,12 @@ u32 kraken_driver_get_temp(struct kraken_data *kdata)
 	return kdata->data->status_message[10];
 }
 
+u32 kraken_driver_get_fan_rpm(struct kraken_data *kdata)
+{
+	struct kraken_driver_data *data = kdata->data;
+	return 256 * data->status_message[0] + data->status_message[1];
+}
+
 static ssize_t show_speed(struct device *dev, struct device_attribute *attr,
                           char *buf)
 {
@@ -280,18 +286,6 @@ static ssize_t show_pump(struct device *dev, struct device_attribute *attr,
 
 static DEVICE_ATTR(pump, S_IRUGO, show_pump, NULL);
 
-static ssize_t show_fan(struct device *dev, struct device_attribute *attr,
-                        char *buf)
-{
-	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
-	struct kraken_driver_data *data = kdata->data;
-
-	const u16 rpm = 256 * data->status_message[0] + data->status_message[1];
-	return scnprintf(buf, PAGE_SIZE, "%u\n", rpm);
-}
-
-static DEVICE_ATTR(fan, S_IRUGO, show_fan, NULL);
-
 static struct attribute *kraken_x61_group_attrs[] = {
 	&dev_attr_speed.attr,
 	&dev_attr_color.attr,
@@ -299,7 +293,6 @@ static struct attribute *kraken_x61_group_attrs[] = {
 	&dev_attr_interval.attr,
 	&dev_attr_mode.attr,
 	&dev_attr_pump.attr,
-	&dev_attr_fan.attr,
 	NULL,
 };
 

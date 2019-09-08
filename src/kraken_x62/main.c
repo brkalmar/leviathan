@@ -66,6 +66,11 @@ u32 kraken_driver_get_temp(struct kraken_data *kdata)
 	return status_data_temp_liquid(&kdata->data->status);
 }
 
+u32 kraken_driver_get_fan_rpm(struct kraken_data *kdata)
+{
+	return status_data_fan_rpm(&kdata->data->status);
+}
+
 static ssize_t serial_no_show(struct device *dev, struct device_attribute *attr,
                               char *buf)
 {
@@ -74,16 +79,6 @@ static ssize_t serial_no_show(struct device *dev, struct device_attribute *attr,
 }
 
 static DEVICE_ATTR_RO(serial_no);
-
-static ssize_t fan_rpm_show(struct device *dev, struct device_attribute *attr,
-                            char *buf)
-{
-	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
-	struct status_data *status = &kdata->data->status;
-	return scnprintf(buf, PAGE_SIZE, "%u\n", status_data_fan_rpm(status));
-}
-
-static DEVICE_ATTR_RO(fan_rpm);
 
 static ssize_t pump_rpm_show(struct device *dev, struct device_attribute *attr,
                              char *buf)
@@ -198,7 +193,6 @@ static DEVICE_ATTR_WO(leds_sync);
 
 static struct attribute *kraken_x62_group_attrs[] = {
 	&dev_attr_serial_no.attr,
-	&dev_attr_fan_rpm.attr,
 	&dev_attr_pump_rpm.attr,
 	&dev_attr_unknown_1.attr,
 	&dev_attr_unknown_2.attr,

@@ -66,6 +66,11 @@ extern int kraken_driver_update(struct kraken_data *kdata);
 extern u32 kraken_driver_get_temp(struct kraken_data *kdata);
 
 /**
+ * The driver's read-only fan attribute [RPM].
+ */
+extern u32 kraken_driver_get_fan_rpm(struct kraken_data *kdata);
+
+/**
  * Driver-specific device attribute file groups.  Created in kraken_probe() and
  * removed in kraken_disconnect().
  */
