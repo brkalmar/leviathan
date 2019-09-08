@@ -10,9 +10,19 @@
 #include <linux/workqueue.h>
 
 /**
+ * The driver's name.
+ */
+extern const char *kraken_driver_name;
+
+/**
  * Driver-specific data.  This struct is defined by the driver.
  */
 struct kraken_driver_data;
+
+/**
+ * Return size of struct `kraken_driver_data`.
+ */
+extern size_t kraken_driver_data_size(void);
 
 /**
  * The custom data stored in the interface, retrievable by usb_get_intfdata().
@@ -46,14 +56,15 @@ struct kraken_data {
 };
 
 /**
- * The driver's name.
+ * The driver's update function, called every update cycle.
  */
-extern const char *kraken_driver_name;
+extern int kraken_driver_update(struct kraken_data *kdata);
 
 /**
- * Return size of struct `kraken_driver_data`.
+ * Driver-specific device attribute file groups.  Created in kraken_probe() and
+ * removed in kraken_disconnect().
  */
-extern size_t kraken_driver_data_size(void);
+extern const struct attribute_group *kraken_driver_groups[];
 
 /**
  * Driver-specific probe called from kraken_probe().  Driver-specific data is
@@ -69,17 +80,6 @@ extern int kraken_driver_probe(struct usb_interface *interface,
 extern void kraken_driver_disconnect(struct usb_interface *interface);
 
 /**
- * The driver's update function, called every update cycle.
- */
-extern int kraken_driver_update(struct kraken_data *kdata);
-
-/**
- * Driver-specific device attribute file groups.  Created in kraken_probe() and
- * removed in kraken_disconnect().
- */
-extern const struct attribute_group *kraken_driver_groups[];
-
-/**
  * Get DMA-capable buffer for USB messages, shared for all messages under a
  * given USB interface.  Used to avoid allocating a new data buffer for every
  * message.
@@ -91,8 +91,15 @@ extern const struct attribute_group *kraken_driver_groups[];
  */
 int kraken_usb_data(struct kraken_data *kdata, u8 **data, size_t size);
 
+/**
+ * The main probe function.
+ */
 int kraken_probe(struct usb_interface *interface,
                  const struct usb_device_id *id);
+
+/**
+ * The main disconnect function.
+ */
 void kraken_disconnect(struct usb_interface *interface);
 
 #endif  /* LEVIATHAN_COMMON_H_INCLUDED */

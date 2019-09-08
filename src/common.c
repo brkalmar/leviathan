@@ -10,6 +10,35 @@
 #include <linux/wait.h>
 #include <linux/workqueue.h>
 
+static void kraken_update_work(struct work_struct *update_work)
+{
+	struct kraken_data *kdata
+		= container_of(update_work, struct kraken_data, update_work);
+	struct device *dev = kdata->dev;
+	int ret = kraken_driver_update(kdata);
+
+	// tell any waiting update syncs that the update has finished
+	kdata->update_sync_condition = true;
+	wake_up_interruptible_all(&kdata->update_sync_waitqueue);
+
+	// last update failed: halt updates
+	if (ret) {
+		dev_err(dev, "last update failed: %d\n", ret);
+		kdata->update = false;
+	}
+
+	// re-queue this work if updates are still on
+	if (!kdata->update) {
+		dev_info(dev, "halting updates: turned off\n");
+		return;
+	}
+	ret = queue_work(kdata->update_workqueue, &kdata->update_work);
+	if (!ret) {
+		dev_err(dev, "update work already on a queue\n");
+		kdata->update = false;
+	}
+}
+
 static ssize_t update_show(struct device *dev, struct device_attribute *attr,
                            char *buf)
 {
@@ -64,35 +93,6 @@ static ssize_t update_sync_show(struct device *dev,
 }
 
 static DEVICE_ATTR_RO(update_sync);
-
-static void kraken_update_work(struct work_struct *update_work)
-{
-	struct kraken_data *kdata
-		= container_of(update_work, struct kraken_data, update_work);
-	struct device *dev = kdata->dev;
-	int ret = kraken_driver_update(kdata);
-
-	// tell any waiting update syncs that the update has finished
-	kdata->update_sync_condition = true;
-	wake_up_interruptible_all(&kdata->update_sync_waitqueue);
-
-	// last update failed: halt updates
-	if (ret) {
-		dev_err(dev, "last update failed: %d\n", ret);
-		kdata->update = false;
-	}
-
-	// re-queue this work if updates are still on
-	if (!kdata->update) {
-		dev_info(dev, "halting updates: turned off\n");
-		return;
-	}
-	ret = queue_work(kdata->update_workqueue, &kdata->update_work);
-	if (!ret) {
-		dev_err(dev, "update work already on a queue\n");
-		kdata->update = false;
-	}
-}
 
 static struct attribute *kraken_group_attrs[] = {
 	&dev_attr_update.attr,
