@@ -59,7 +59,7 @@ int percent_data_parse(struct percent_data *data, struct device *dev,
 	unsigned int percent_ui;
 	u8 percent;
 
-	int ret = str_scan_word(&buf, percent_str);
+	int ret = kraken_scan_word(&buf, percent_str);
 	if (ret) {
 		dev_warn(dev, "%s: missing percent\n", attr);
 		goto error;

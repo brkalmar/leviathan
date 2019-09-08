@@ -1,7 +1,6 @@
 /* Driver for 1e71:170e devices.
  */
 
-#include "driver_data.h"
 #include "led.h"
 #include "percent.h"
 #include "status.h"
@@ -17,6 +16,21 @@
 #define DRIVER_NAME "kraken_x62"
 
 const char *kraken_driver_name = DRIVER_NAME;
+
+#define DATA_SERIAL_NUMBER_SIZE ((size_t) 65)
+
+struct kraken_driver_data {
+	char serial_number[DATA_SERIAL_NUMBER_SIZE];
+
+	struct status_data status;
+
+	struct percent_data percent_fan;
+	struct percent_data percent_pump;
+
+	struct led_data led_logo;
+	struct led_data leds_ring;
+	struct led_data leds_sync;
+};
 
 size_t kraken_driver_data_size(void)
 {

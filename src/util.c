@@ -6,7 +6,7 @@
 #include <linux/kernel.h>
 #include <linux/stringify.h>
 
-int str_scan_word(const char **buf, char *word)
+int kraken_scan_word(const char **buf, char *word)
 {
 	size_t i;
 	for (i = 0; i < WORD_LEN_MAX - 1; i++) {

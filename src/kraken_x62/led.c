@@ -376,7 +376,7 @@ static int parse_preset(struct led_batch *batch, struct device *dev,
 	char preset_str[WORD_LEN_MAX];
 	enum led_preset preset;
 	u8 i;
-	int ret = str_scan_word(buf, preset_str);
+	int ret = kraken_scan_word(buf, preset_str);
 	if (ret) {
 		dev_warn(dev, "%s: missing preset\n", attr);
 		return ret;
@@ -405,7 +405,7 @@ static int parse_moving(struct led_batch *batch, struct device *dev,
 	char moving_str[WORD_LEN_MAX];
 	bool moving;
 	u8 i;
-	int ret = str_scan_word(buf, moving_str);
+	int ret = kraken_scan_word(buf, moving_str);
 	if (ret) {
 		dev_warn(dev, "%s: missing moving\n", attr);
 		return ret;
@@ -431,7 +431,7 @@ static int parse_direction(struct led_batch *batch, struct device *dev,
 	char direction_str[WORD_LEN_MAX];
 	enum led_direction direction;
 	u8 i;
-	int ret = str_scan_word(buf, direction_str);
+	int ret = kraken_scan_word(buf, direction_str);
 	if (ret) {
 		dev_warn(dev, "%s: missing direction\n", attr);
 		return ret;
@@ -458,7 +458,7 @@ static int parse_interval(struct led_batch *batch, struct device *dev,
 	char interval_str[WORD_LEN_MAX];
 	enum led_interval interval;
 	u8 i;
-	int ret = str_scan_word(buf, interval_str);
+	int ret = kraken_scan_word(buf, interval_str);
 	if (ret) {
 		dev_warn(dev, "%s: missing interval\n", attr);
 		return ret;
@@ -484,7 +484,7 @@ static int parse_group_size(struct led_batch *batch, struct device *dev,
 	char group_size_str[WORD_LEN_MAX];
 	u8 group_size;
 	u8 i;
-	int ret = str_scan_word(buf, group_size_str);
+	int ret = kraken_scan_word(buf, group_size_str);
 	if (ret) {
 		dev_warn(dev, "%s: missing group size\n", attr);
 		return ret;
@@ -511,7 +511,7 @@ static int parse_cycles(struct led_batch *batch, struct device *dev,
 {
 	char len_str[WORD_LEN_MAX];
 	unsigned int len;
-	int ret = str_scan_word(buf, len_str);
+	int ret = kraken_scan_word(buf, len_str);
 	if (ret) {
 		dev_warn(dev, "%s: missing cycles\n", attr);
 		return ret;
@@ -530,7 +530,7 @@ static int parse_color_logo(struct led_msg *msg, struct device *dev,
 {
 	char color_str[WORD_LEN_MAX];
 	struct led_color color;
-	int ret = str_scan_word(buf, color_str);
+	int ret = kraken_scan_word(buf, color_str);
 	if (ret) {
 		dev_warn(dev, "%s: missing color\n", attr);
 		return ret;
@@ -552,7 +552,7 @@ static int parse_colors_ring(struct led_msg *msg, struct device *dev,
 	size_t i;
 	int ret;
 	for (i = 0; i < ARRAY_SIZE(colors); i++) {
-		ret = str_scan_word(buf, color_str);
+		ret = kraken_scan_word(buf, color_str);
 		if (ret) {
 			dev_warn(dev, (i == 0) ? "%s: missing colors\n" :
 			         "%s: invalid colors\n", attr);
