@@ -39,14 +39,14 @@ static int kraken_send_message(struct kraken_data *kdata, u8 *message,
 {
 	int sent;
 	u8 *data;
-	int retval = kraken_usb_data(kdata, &data, length);
-	if (retval)
-		return retval;
+	int ret = kraken_usb_data(kdata, &data, length);
+	if (ret)
+		return ret;
 	memcpy(data, message, length);
-	retval = usb_bulk_msg(kdata->udev, usb_sndbulkpipe(kdata->udev, 2),
+	ret = usb_bulk_msg(kdata->udev, usb_sndbulkpipe(kdata->udev, 2),
 	                      data, length, &sent, 3000);
-	if (retval)
-		return retval;
+	if (ret)
+		return ret;
 	if (sent != length)
 		return -EIO;
 	return 0;
@@ -57,13 +57,13 @@ static int kraken_receive_message(struct kraken_data *kdata, u8 *message,
 {
 	int received;
 	u8 *data;
-	int retval = kraken_usb_data(kdata, &data, expected_length);
-	if (retval)
-		return retval;
-	retval = usb_bulk_msg(kdata->udev, usb_rcvbulkpipe(kdata->udev, 2),
+	int ret = kraken_usb_data(kdata, &data, expected_length);
+	if (ret)
+		return ret;
+	ret = usb_bulk_msg(kdata->udev, usb_rcvbulkpipe(kdata->udev, 2),
 	                      data, expected_length, &received, 3000);
-	if (retval)
-		return retval;
+	if (ret)
+		return ret;
 	if (received != expected_length)
 		return -EIO;
 	memcpy(message, data, expected_length);
@@ -72,29 +72,29 @@ static int kraken_receive_message(struct kraken_data *kdata, u8 *message,
 
 int kraken_driver_update(struct kraken_data *kdata)
 {
-	int retval = 0;
+	int ret = 0;
 	struct kraken_driver_data *data = kdata->data;
 	if (data->send_color) {
-		if (
-			(retval = kraken_start_transaction(kdata)) ||
-			(retval = kraken_send_message(kdata, data->color_message, 19)) ||
-			(retval = kraken_receive_message(kdata, data->status_message, 32))
-		   )
+		if ((ret = kraken_start_transaction(kdata)) ||
+		    (ret = kraken_send_message(
+			    kdata, data->color_message, 19)) ||
+		    (ret = kraken_receive_message(
+			    kdata, data->status_message, 32)))
 			;
 	} else {
-		if (
-			(retval = kraken_start_transaction(kdata)) ||
-			(retval = kraken_send_message(kdata, data->pump_message, 2)) ||
-			(retval = kraken_send_message(kdata, data->fan_message, 2)) ||
-			(retval = kraken_receive_message(kdata, data->status_message, 32))
-		   )
+		if ((ret = kraken_start_transaction(kdata)) ||
+		    (ret = kraken_send_message(kdata, data->pump_message, 2)) ||
+		    (ret = kraken_send_message(kdata, data->fan_message, 2)) ||
+		    (ret = kraken_receive_message(
+			    kdata, data->status_message, 32)))
 			;
 	}
 	data->send_color = false;
-	return retval;
+	return ret;
 }
 
-static ssize_t show_speed(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t show_speed(struct device *dev, struct device_attribute *attr,
+                          char *buf)
 {
 	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
 	struct kraken_driver_data *data = kdata->data;
@@ -102,7 +102,8 @@ static ssize_t show_speed(struct device *dev, struct device_attribute *attr, cha
 	return scnprintf(buf, PAGE_SIZE, "%u\n", data->pump_message[1]);
 }
 
-static ssize_t set_speed(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+static ssize_t set_speed(struct device *dev, struct device_attribute *attr,
+                         const char *buf, size_t count)
 {
 	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
 	struct kraken_driver_data *data = kdata->data;
@@ -119,15 +120,19 @@ static ssize_t set_speed(struct device *dev, struct device_attribute *attr, cons
 
 static DEVICE_ATTR(speed, S_IRUGO | S_IWUSR | S_IWGRP, show_speed, set_speed);
 
-static ssize_t show_color(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t show_color(struct device *dev, struct device_attribute *attr,
+                          char *buf)
 {
 	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
 	struct kraken_driver_data *data = kdata->data;
 
-	return scnprintf(buf, PAGE_SIZE, "%02x%02x%02x\n", data->color_message[1], data->color_message[2], data->color_message[3]);
+	return scnprintf(buf, PAGE_SIZE, "%02x%02x%02x\n",
+	                 data->color_message[1], data->color_message[2],
+	                 data->color_message[3]);
 }
 
-static ssize_t set_color(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+static ssize_t set_color(struct device *dev, struct device_attribute *attr,
+                         const char *buf, size_t count)
 {
 	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
 	struct kraken_driver_data *data = kdata->data;
@@ -147,15 +152,20 @@ static ssize_t set_color(struct device *dev, struct device_attribute *attr, cons
 
 static DEVICE_ATTR(color, S_IRUGO | S_IWUSR | S_IWGRP, show_color, set_color);
 
-static ssize_t show_alternate_color(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t show_alternate_color(struct device *dev,
+                                    struct device_attribute *attr, char *buf)
 {
 	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
 	struct kraken_driver_data *data = kdata->data;
 
-	return scnprintf(buf, PAGE_SIZE, "%02x%02x%02x\n", data->color_message[4], data->color_message[5], data->color_message[6]);
+	return scnprintf(buf, PAGE_SIZE, "%02x%02x%02x\n",
+	                 data->color_message[4], data->color_message[5],
+	                 data->color_message[6]);
 }
 
-static ssize_t set_alternate_color(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+static ssize_t set_alternate_color(struct device *dev,
+                                   struct device_attribute *attr,
+                                   const char *buf, size_t count)
 {
 	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
 	struct kraken_driver_data *data = kdata->data;
@@ -173,9 +183,11 @@ static ssize_t set_alternate_color(struct device *dev, struct device_attribute *
 	return count;
 }
 
-static DEVICE_ATTR(alternate_color, S_IRUGO | S_IWUSR | S_IWGRP, show_alternate_color, set_alternate_color);
+static DEVICE_ATTR(alternate_color, S_IRUGO | S_IWUSR | S_IWGRP,
+                   show_alternate_color, set_alternate_color);
 
-static ssize_t show_interval(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t show_interval(struct device *dev, struct device_attribute *attr,
+                             char *buf)
 {
 	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
 	struct kraken_driver_data *data = kdata->data;
@@ -183,7 +195,8 @@ static ssize_t show_interval(struct device *dev, struct device_attribute *attr, 
 	return scnprintf(buf, PAGE_SIZE, "%u\n", data->color_message[11]);
 }
 
-static ssize_t set_interval(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+static ssize_t set_interval(struct device *dev, struct device_attribute *attr,
+                            const char *buf, size_t count)
 {
 	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
 	struct kraken_driver_data *data = kdata->data;
@@ -199,9 +212,11 @@ static ssize_t set_interval(struct device *dev, struct device_attribute *attr, c
 	return count;
 }
 
-static DEVICE_ATTR(interval, S_IRUGO | S_IWUSR | S_IWGRP, show_interval, set_interval);
+static DEVICE_ATTR(interval, S_IRUGO | S_IWUSR | S_IWGRP, show_interval,
+                   set_interval);
 
-static ssize_t show_mode(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t show_mode(struct device *dev, struct device_attribute *attr,
+                         char *buf)
 {
 	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
 	struct kraken_driver_data *data = kdata->data;
@@ -216,7 +231,8 @@ static ssize_t show_mode(struct device *dev, struct device_attribute *attr, char
 		return scnprintf(buf, PAGE_SIZE, "off\n");
 }
 
-static ssize_t set_mode(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+static ssize_t set_mode(struct device *dev, struct device_attribute *attr,
+                        const char *buf, size_t count)
 {
 	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
 	struct kraken_driver_data *data = kdata->data;
@@ -225,7 +241,8 @@ static ssize_t set_mode(struct device *dev, struct device_attribute *attr, const
 		data->color_message[13] = 1;
 		data->color_message[14] = 0;
 		data->color_message[15] = 0;
-	} else if (strncasecmp(buf, "alternating", strlen("alternating")) == 0) {
+	} else if (strncasecmp(buf, "alternating",
+	                       strlen("alternating")) == 0) {
 		data->color_message[13] = 1;
 		data->color_message[14] = 1;
 		data->color_message[15] = 0;
@@ -247,7 +264,8 @@ static ssize_t set_mode(struct device *dev, struct device_attribute *attr, const
 
 static DEVICE_ATTR(mode, S_IRUGO | S_IWUSR | S_IWGRP, show_mode, set_mode);
 
-static ssize_t show_temp(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t show_temp(struct device *dev, struct device_attribute *attr,
+                         char *buf)
 {
 	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
 	struct kraken_driver_data *data = kdata->data;
@@ -257,22 +275,25 @@ static ssize_t show_temp(struct device *dev, struct device_attribute *attr, char
 
 static DEVICE_ATTR(temp, S_IRUGO, show_temp, NULL);
 
-static ssize_t show_pump(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t show_pump(struct device *dev, struct device_attribute *attr,
+                         char *buf)
 {
 	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
 	struct kraken_driver_data *data = kdata->data;
-
-	return scnprintf(buf, PAGE_SIZE, "%u\n", 256 * data->status_message[8] + data->status_message[9]);
+	const u16 rpm = 256 * data->status_message[8] + data->status_message[9];
+	return scnprintf(buf, PAGE_SIZE, "%u\n", rpm);
 }
 
 static DEVICE_ATTR(pump, S_IRUGO, show_pump, NULL);
 
-static ssize_t show_fan(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t show_fan(struct device *dev, struct device_attribute *attr,
+                        char *buf)
 {
 	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
 	struct kraken_driver_data *data = kdata->data;
 
-	return scnprintf(buf, PAGE_SIZE, "%u\n", 256 * data->status_message[0] + data->status_message[1]);
+	const u16 rpm = 256 * data->status_message[0] + data->status_message[1];
+	return scnprintf(buf, PAGE_SIZE, "%u\n", rpm);
 }
 
 static DEVICE_ATTR(fan, S_IRUGO, show_fan, NULL);
@@ -298,19 +319,38 @@ const struct attribute_group *kraken_driver_groups[] = {
 	NULL,
 };
 
-int kraken_driver_probe(struct usb_interface *interface, const struct usb_device_id *id)
+int kraken_driver_probe(struct usb_interface *interface,
+                        const struct usb_device_id *id)
 {
 	struct kraken_data *kdata = usb_get_intfdata(interface);
 	struct kraken_driver_data *data = kdata->data;
-	int retval;
+	int ret;
 
-	data->color_message[0] = 0x10;
-	data->color_message[1] = 0x00; data->color_message[2] = 0x00; data->color_message[3] = 0xff;
-	data->color_message[4] = 0x00; data->color_message[5] = 0xff; data->color_message[6] = 0x00;
-	data->color_message[7] = 0x00; data->color_message[8] = 0x00; data->color_message[9] = 0x00; data->color_message[10] = 0x3c;
-	data->color_message[11] = 1; data->color_message[12] = 1;
-	data->color_message[13] = 1; data->color_message[14] = 0; data->color_message[15] = 0;
-	data->color_message[16] = 0x00; data->color_message[17] = 0x00; data->color_message[18] = 0x01;
+	data->color_message[0]  = 0x10;
+
+	data->color_message[1]  = 0x00;
+	data->color_message[2]  = 0x00;
+	data->color_message[3]  = 0xff;
+
+	data->color_message[4]  = 0x00;
+	data->color_message[5]  = 0xff;
+	data->color_message[6]  = 0x00;
+
+	data->color_message[7]  = 0x00;
+	data->color_message[8]  = 0x00;
+	data->color_message[9]  = 0x00;
+	data->color_message[10] = 0x3c;
+
+	data->color_message[11] = 0x01;
+	data->color_message[12] = 0x01;
+
+	data->color_message[13] = 0x01;
+	data->color_message[14] = 0x00;
+	data->color_message[15] = 0x00;
+
+	data->color_message[16] = 0x00;
+	data->color_message[17] = 0x00;
+	data->color_message[18] = 0x01;
 
 	data->pump_message[0] = 0x13;
 	data->pump_message[1] = 50;
@@ -318,11 +358,12 @@ int kraken_driver_probe(struct usb_interface *interface, const struct usb_device
 	data->fan_message[0] = 0x12;
 	data->fan_message[1] = 50;
 
-	retval = usb_control_msg(kdata->udev, usb_sndctrlpipe(kdata->udev, 0), 2, 0x40, 0x0002, 0, NULL, 0, 1000);
-	if (retval)
-		return retval;
-
 	data->send_color = true;
+
+	ret = usb_control_msg(kdata->udev, usb_sndctrlpipe(kdata->udev, 0), 2,
+	                      0x40, 0x0002, 0, NULL, 0, 1000);
+	if (ret)
+		return ret;
 
 	return 0;
 }

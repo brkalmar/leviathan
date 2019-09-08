@@ -22,9 +22,9 @@ static ssize_t update_store(struct device *dev, struct device_attribute *attr,
 {
 	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
 	bool update;
-	int retval = kstrtobool(buf, &update);
-	if (retval)
-		return retval;
+	int ret = kstrtobool(buf, &update);
+	if (ret)
+		return ret;
 	// update is false: halt updates
 	if (!update) {
 		kdata->update = update;
@@ -37,8 +37,8 @@ static ssize_t update_store(struct device *dev, struct device_attribute *attr,
 	// otherwise: restart updates
 	dev_info(dev, "restarting updates: turned on\n");
 	kdata->update = update;
-	retval = queue_work(kdata->update_workqueue, &kdata->update_work);
-	if (!retval) {
+	ret = queue_work(kdata->update_workqueue, &kdata->update_work);
+	if (!ret) {
 		dev_err(dev, "update work already on a queue\n");
 		return -EINVAL;
 	}
@@ -56,11 +56,11 @@ static ssize_t update_sync_show(struct device *dev,
                                 struct device_attribute *attr, char *buf)
 {
 	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
-	int retval;
+	int ret;
 	kdata->update_sync_condition = false;
-	retval = !wait_event_interruptible(kdata->update_sync_waitqueue,
+	ret = !wait_event_interruptible(kdata->update_sync_waitqueue,
 	                                   kdata->update_sync_condition);
-	return scnprintf(buf, PAGE_SIZE, "%d\n", retval);
+	return scnprintf(buf, PAGE_SIZE, "%d\n", ret);
 }
 
 static DEVICE_ATTR_RO(update_sync);
@@ -70,15 +70,15 @@ static void kraken_update_work(struct work_struct *update_work)
 	struct kraken_data *kdata
 		= container_of(update_work, struct kraken_data, update_work);
 	struct device *dev = kdata->dev;
-	int retval = kraken_driver_update(kdata);
+	int ret = kraken_driver_update(kdata);
 
 	// tell any waiting update syncs that the update has finished
 	kdata->update_sync_condition = true;
 	wake_up_interruptible_all(&kdata->update_sync_waitqueue);
 
 	// last update failed: halt updates
-	if (retval) {
-		dev_err(dev, "last update failed: %d\n", retval);
+	if (ret) {
+		dev_err(dev, "last update failed: %d\n", ret);
 		kdata->update = false;
 	}
 
@@ -87,8 +87,8 @@ static void kraken_update_work(struct work_struct *update_work)
 		dev_info(dev, "halting updates: turned off\n");
 		return;
 	}
-	retval = queue_work(kdata->update_workqueue, &kdata->update_work);
-	if (!retval) {
+	ret = queue_work(kdata->update_workqueue, &kdata->update_work);
+	if (!ret) {
 		dev_err(dev, "update work already on a queue\n");
 		kdata->update = false;
 	}
@@ -111,20 +111,20 @@ static const struct attribute_group *kraken_groups[] = {
 
 static int kraken_create_groups(struct usb_interface *interface)
 {
-	int retval;
+	int ret;
 
-	retval = device_add_groups(&interface->dev, kraken_groups);
-	if (retval)
+	ret = device_add_groups(&interface->dev, kraken_groups);
+	if (ret)
 		goto error_groups;
-	retval = device_add_groups(&interface->dev, kraken_driver_groups);
-	if (retval)
+	ret = device_add_groups(&interface->dev, kraken_driver_groups);
+	if (ret)
 		goto error_driver_groups;
 
 	return 0;
 error_driver_groups:
 	device_remove_groups(&interface->dev, kraken_groups);
 error_groups:
-	return retval;
+	return ret;
 }
 
 static void kraken_remove_groups(struct usb_interface *interface)
@@ -153,7 +153,7 @@ int kraken_probe(struct usb_interface *interface,
 {
 	u8 *usb_data;
 	char workqueue_name[64];
-	int retval = -ENOMEM;
+	int ret = -ENOMEM;
 	struct usb_device *udev = interface_to_usbdev(interface);
 	struct device *dev = &interface->dev;
 
@@ -165,16 +165,16 @@ int kraken_probe(struct usb_interface *interface,
 		goto error_data;
 	kdata->usb_data = NULL;
 	kdata->usb_data_size = 0;
-	retval = kraken_usb_data(kdata, &usb_data, PAGE_SIZE);
-	if (retval)
+	ret = kraken_usb_data(kdata, &usb_data, PAGE_SIZE);
+	if (ret)
 		goto error_usb_data;
 
 	kdata->udev = usb_get_dev(udev);
 	kdata->dev = dev;
 	usb_set_intfdata(interface, kdata);
 
-	retval = kraken_driver_probe(interface, id);
-	if (retval)
+	ret = kraken_driver_probe(interface, id);
+	if (ret)
 		goto error_driver_probe;
 
 	init_waitqueue_head(&kdata->update_sync_waitqueue);
@@ -187,20 +187,20 @@ int kraken_probe(struct usb_interface *interface,
 	kdata->update = update_initial;
 
 	if (kdata->update) {
-		retval = queue_work(kdata->update_workqueue,
+		ret = queue_work(kdata->update_workqueue,
 		                    &kdata->update_work);
-		if (!retval) {
+		if (!ret) {
 			dev_err(dev, "update work already on a queue\n");
-			retval = 1;
+			ret = 1;
 			goto error_queue_work;
 		}
 	} else {
 		dev_info(dev, "not starting updates: turned off\n");
 	}
 
-	retval = kraken_create_groups(interface);
-	if (retval) {
-		dev_err(dev, "failed to create device files: %d\n", retval);
+	ret = kraken_create_groups(interface);
+	if (ret) {
+		dev_err(dev, "failed to create device files: %d\n", ret);
 		goto error_create_groups;
 	}
 
@@ -224,7 +224,7 @@ error_usb_data:
 error_data:
 	kfree(kdata);
 error_kdata:
-	return retval;
+	return ret;
 }
 
 void kraken_disconnect(struct usb_interface *interface)
