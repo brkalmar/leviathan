@@ -43,20 +43,25 @@ struct kraken_data {
 extern const char *kraken_driver_name;
 
 /**
- * Driver-specific probe called from kraken_probe().  Driver-specific data must
- * be allocated here.
+ * Return size of struct `kraken_driver_data`.
+ */
+extern size_t kraken_driver_data_size(void);
+
+/**
+ * Driver-specific probe called from kraken_probe().  Driver-specific data is
+ * allocated before calling this.
  */
 extern int kraken_driver_probe(struct usb_interface *interface,
                                const struct usb_device_id *id);
 
 /**
  * Driver-specific disconnect called from kraken_disconnect().  Driver-specific
- * data must be freed here.
+ * data is freed after calling this.
  */
 extern void kraken_driver_disconnect(struct usb_interface *interface);
 
 /**
- * The driver's update function, called every second.
+ * The driver's update function, called every update cycle.
  */
 extern int kraken_driver_update(struct kraken_data *kdata);
 

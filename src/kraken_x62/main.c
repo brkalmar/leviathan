@@ -18,6 +18,11 @@
 
 const char *kraken_driver_name = DRIVER_NAME;
 
+size_t kraken_driver_data_size(void)
+{
+	return sizeof(struct kraken_driver_data);
+}
+
 static void kraken_driver_data_init(struct kraken_driver_data *data)
 {
 	status_data_init(&data->status);
@@ -30,9 +35,8 @@ static void kraken_driver_data_init(struct kraken_driver_data *data)
 
 int kraken_driver_update(struct kraken_data *kdata)
 {
-	struct kraken_driver_data *data = kdata->data;
-
 	int ret;
+	struct kraken_driver_data *data = kdata->data;
 	if ((ret = kraken_x62_update_status(kdata, &data->status)) ||
 	    (ret = kraken_x62_update_percent(kdata, &data->percent_fan)) ||
 	    (ret = kraken_x62_update_percent(kdata, &data->percent_pump)) ||
@@ -274,40 +278,23 @@ error_data:
 int kraken_driver_probe(struct usb_interface *interface,
                         const struct usb_device_id *id)
 {
-	struct kraken_driver_data *data;
 	struct kraken_data *kdata = usb_get_intfdata(interface);
-
-	int ret = -ENOMEM;
-	kdata->data = kzalloc(sizeof(*kdata->data), GFP_KERNEL | GFP_DMA);
-	if (kdata->data == NULL)
-		goto error_data;
-	data = kdata->data;
+	struct kraken_driver_data *data = kdata->data;
+	int ret;
 
 	kraken_driver_data_init(data);
 
 	ret = kraken_x62_initialize(kdata, data->serial_number);
 	if (ret) {
 		dev_err(&interface->dev, "failed to initialize: %d\n", ret);
-		goto error_init_message;
+		return ret;
 	}
 
-	dev_info(&interface->dev, "device connected\n");
-
 	return 0;
-error_init_message:
-	kfree(data);
-error_data:
-	return ret;
 }
 
 void kraken_driver_disconnect(struct usb_interface *interface)
 {
-	struct kraken_data *kdata = usb_get_intfdata(interface);
-	struct kraken_driver_data *data = kdata->data;
-
-	kfree(data);
-
-	dev_info(&interface->dev, "device disconnected\n");
 }
 
 static const struct usb_device_id kraken_x62_id_table[] = {

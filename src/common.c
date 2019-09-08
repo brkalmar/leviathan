@@ -143,6 +143,10 @@ int kraken_probe(struct usb_interface *interface,
 	struct kraken_data *kdata = kmalloc(sizeof(*kdata), GFP_KERNEL);
 	if (kdata == NULL)
 		goto error_kdata;
+	kdata->data = kmalloc(kraken_driver_data_size(), GFP_KERNEL);
+	if (kdata->data == NULL)
+		goto error_data;
+
 	kdata->udev = usb_get_dev(udev);
 	usb_set_intfdata(interface, kdata);
 
@@ -179,6 +183,8 @@ int kraken_probe(struct usb_interface *interface,
 		goto error_create_groups;
 	}
 
+	dev_info(&interface->dev, "device connected\n");
+
 	return 0;
 error_create_groups:
 	kdata->update = false;
@@ -191,6 +197,8 @@ error_queue_work:
 error_driver_probe:
 	usb_set_intfdata(interface, NULL);
 	usb_put_dev(kdata->udev);
+	kfree(kdata->data);
+error_data:
 	kfree(kdata);
 error_kdata:
 	return retval;
@@ -212,5 +220,7 @@ void kraken_disconnect(struct usb_interface *interface)
 
 	usb_set_intfdata(interface, NULL);
 	usb_put_dev(kdata->udev);
+
+	kfree(kdata->data);
 	kfree(kdata);
 }

@@ -23,6 +23,11 @@ struct kraken_driver_data {
 	u8 status_message[32];
 };
 
+size_t kraken_driver_data_size(void)
+{
+	return sizeof(struct kraken_driver_data);
+}
+
 static int kraken_start_transaction(struct kraken_data *kdata)
 {
 	return usb_control_msg(kdata->udev, usb_sndctrlpipe(kdata->udev, 0), 2, 0x40, 0x0001, 0, NULL, 0, 1000);
@@ -280,13 +285,9 @@ const struct attribute_group *kraken_driver_groups[] = {
 
 int kraken_driver_probe(struct usb_interface *interface, const struct usb_device_id *id)
 {
-	struct kraken_driver_data *data;
 	struct kraken_data *kdata = usb_get_intfdata(interface);
-	int retval = -ENOMEM;
-	kdata->data = kmalloc(sizeof(*kdata->data), GFP_KERNEL | GFP_DMA);
-	if (!kdata->data)
-		goto error_data;
-	data = kdata->data;
+	struct kraken_driver_data *data = kdata->data;
+	int retval;
 
 	data->color_message[0] = 0x10;
 	data->color_message[1] = 0x00; data->color_message[2] = 0x00; data->color_message[3] = 0xff;
@@ -304,26 +305,15 @@ int kraken_driver_probe(struct usb_interface *interface, const struct usb_device
 
 	retval = usb_control_msg(kdata->udev, usb_sndctrlpipe(kdata->udev, 0), 2, 0x40, 0x0002, 0, NULL, 0, 1000);
 	if (retval)
-		goto error;
+		return retval;
 
-	dev_info(&interface->dev, "Kraken connected\n");
 	data->send_color = true;
 
 	return 0;
-error:
-	kfree(data);
-error_data:
-	return retval;
 }
 
 void kraken_driver_disconnect(struct usb_interface *interface)
 {
-	struct kraken_data *kdata = usb_get_intfdata(interface);
-	struct kraken_driver_data *data = kdata->data;
-
-	kfree(data);
-
-	dev_info(&interface->dev, "Kraken disconnected\n");
 }
 
 static const struct usb_device_id kraken_x61_id_table[] = {
