@@ -93,6 +93,11 @@ int kraken_driver_update(struct kraken_data *kdata)
 	return ret;
 }
 
+u32 kraken_driver_get_temp(struct kraken_data *kdata)
+{
+	return kdata->data->status_message[10];
+}
+
 static ssize_t show_speed(struct device *dev, struct device_attribute *attr,
                           char *buf)
 {
@@ -264,17 +269,6 @@ static ssize_t set_mode(struct device *dev, struct device_attribute *attr,
 
 static DEVICE_ATTR(mode, S_IRUGO | S_IWUSR | S_IWGRP, show_mode, set_mode);
 
-static ssize_t show_temp(struct device *dev, struct device_attribute *attr,
-                         char *buf)
-{
-	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
-	struct kraken_driver_data *data = kdata->data;
-
-	return scnprintf(buf, PAGE_SIZE, "%u\n", data->status_message[10]);
-}
-
-static DEVICE_ATTR(temp, S_IRUGO, show_temp, NULL);
-
 static ssize_t show_pump(struct device *dev, struct device_attribute *attr,
                          char *buf)
 {
@@ -304,7 +298,6 @@ static struct attribute *kraken_x61_group_attrs[] = {
 	&dev_attr_alternate_color.attr,
 	&dev_attr_interval.attr,
 	&dev_attr_mode.attr,
-	&dev_attr_temp.attr,
 	&dev_attr_pump.attr,
 	&dev_attr_fan.attr,
 	NULL,

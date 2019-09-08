@@ -94,9 +94,19 @@ static ssize_t update_sync_show(struct device *dev,
 
 static DEVICE_ATTR_RO(update_sync);
 
+static ssize_t temp_show(struct device *dev,  struct device_attribute *attr,
+                         char *buf)
+{
+	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
+	return scnprintf(buf, PAGE_SIZE, "%u\n", kraken_driver_get_temp(kdata));
+}
+
+static DEVICE_ATTR_RO(temp);
+
 static struct attribute *kraken_group_attrs[] = {
 	&dev_attr_update.attr,
 	&dev_attr_update_sync.attr,
+	&dev_attr_temp.attr,
 	NULL,
 };
 

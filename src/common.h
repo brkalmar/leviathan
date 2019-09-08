@@ -61,6 +61,11 @@ struct kraken_data {
 extern int kraken_driver_update(struct kraken_data *kdata);
 
 /**
+ * The driver's liquid temperature attribute [°C].
+ */
+extern u32 kraken_driver_get_temp(struct kraken_data *kdata);
+
+/**
  * Driver-specific device attribute file groups.  Created in kraken_probe() and
  * removed in kraken_disconnect().
  */
