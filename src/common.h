@@ -5,7 +5,6 @@
 #ifndef LEVIATHAN_COMMON_H_INCLUDED
 #define LEVIATHAN_COMMON_H_INCLUDED
 
-#include <linux/hrtimer.h>
 #include <linux/usb.h>
 #include <linux/wait.h>
 #include <linux/workqueue.h>
@@ -19,9 +18,16 @@ struct kraken_driver_data;
  * The custom data stored in the interface, retrievable by usb_get_intfdata().
  */
 struct kraken_data {
-	struct usb_device *udev;
-	struct usb_interface *interface;
+	// Driver-specific data.
 	struct kraken_driver_data *data;
+
+	// Handle to the usb device.
+	struct usb_device *udev;
+
+	// Shared USB message data buffer.  Expanded each time a bigger buffer
+	// than already allocated is requested.
+	u8 *usb_data;
+	size_t usb_data_size;
 
 	// Any update syncs waiting for an update wait on this; updates wake
 	// everything on this up.
@@ -70,6 +76,18 @@ extern int kraken_driver_update(struct kraken_data *kdata);
  * removed in kraken_disconnect().
  */
 extern const struct attribute_group *kraken_driver_groups[];
+
+/**
+ * Get DMA-capable buffer for USB messages, shared for all messages under a
+ * given USB interface.  Used to avoid allocating a new data buffer for every
+ * message.
+ *
+ * This should not lead to any races as long as all USB messages are sent
+ * synchronously.
+ *
+ * Return 0 on success, -ENOMEM if kmalloc fails.
+ */
+int kraken_usb_data(struct kraken_data *kdata, u8 **data, size_t size);
 
 int kraken_probe(struct usb_interface *interface,
                  const struct usb_device_id *id);

@@ -4,7 +4,6 @@
 #include "common.h"
 
 #include <linux/freezer.h>
-#include <linux/hrtimer.h>
 #include <linux/moduleparam.h>
 #include <linux/slab.h>
 #include <linux/usb.h>
@@ -133,9 +132,25 @@ static void kraken_remove_groups(struct usb_interface *interface)
 	device_remove_groups(&interface->dev, kraken_groups);
 }
 
+int kraken_usb_data(struct kraken_data *kdata, u8 **data, size_t size)
+{
+	if (size <= kdata->usb_data_size) {
+		*data = kdata->usb_data;
+		return 0;
+	}
+	kdata->usb_data_size = max(kdata->usb_data_size * 2, size);
+	*data = kmalloc(kdata->usb_data_size, GFP_KERNEL | GFP_DMA);
+	if (*data == NULL)
+		return -ENOMEM;
+	kfree(kdata->usb_data);
+	kdata->usb_data = *data;
+	return 0;
+}
+
 int kraken_probe(struct usb_interface *interface,
                  const struct usb_device_id *id)
 {
+	u8 *usb_data;
 	char workqueue_name[64];
 	int retval = -ENOMEM;
 	struct usb_device *udev = interface_to_usbdev(interface);
@@ -146,6 +161,11 @@ int kraken_probe(struct usb_interface *interface,
 	kdata->data = kmalloc(kraken_driver_data_size(), GFP_KERNEL);
 	if (kdata->data == NULL)
 		goto error_data;
+	kdata->usb_data = NULL;
+	kdata->usb_data_size = 0;
+	retval = kraken_usb_data(kdata, &usb_data, PAGE_SIZE);
+	if (retval)
+		goto error_usb_data;
 
 	kdata->udev = usb_get_dev(udev);
 	usb_set_intfdata(interface, kdata);
@@ -197,6 +217,8 @@ error_queue_work:
 error_driver_probe:
 	usb_set_intfdata(interface, NULL);
 	usb_put_dev(kdata->udev);
+	kfree(kdata->usb_data);
+error_usb_data:
 	kfree(kdata->data);
 error_data:
 	kfree(kdata);
@@ -221,6 +243,7 @@ void kraken_disconnect(struct usb_interface *interface)
 	usb_set_intfdata(interface, NULL);
 	usb_put_dev(kdata->udev);
 
+	kfree(kdata->usb_data);
 	kfree(kdata->data);
 	kfree(kdata);
 }

@@ -30,28 +30,43 @@ size_t kraken_driver_data_size(void)
 
 static int kraken_start_transaction(struct kraken_data *kdata)
 {
-	return usb_control_msg(kdata->udev, usb_sndctrlpipe(kdata->udev, 0), 2, 0x40, 0x0001, 0, NULL, 0, 1000);
+	return usb_control_msg(kdata->udev, usb_sndctrlpipe(kdata->udev, 0), 2,
+	                       0x40, 0x0001, 0, NULL, 0, 1000);
 }
 
-static int kraken_send_message(struct kraken_data *kdata, u8 *message, int length)
+static int kraken_send_message(struct kraken_data *kdata, u8 *message,
+                               int length)
 {
 	int sent;
-	int retval = usb_bulk_msg(kdata->udev, usb_sndbulkpipe(kdata->udev, 2), message, length, &sent, 3000);
-	if (retval != 0)
+	u8 *data;
+	int retval = kraken_usb_data(kdata, &data, length);
+	if (retval)
+		return retval;
+	memcpy(data, message, length);
+	retval = usb_bulk_msg(kdata->udev, usb_sndbulkpipe(kdata->udev, 2),
+	                      data, length, &sent, 3000);
+	if (retval)
 		return retval;
 	if (sent != length)
 		return -EIO;
 	return 0;
 }
 
-static int kraken_receive_message(struct kraken_data *kdata, u8 message[], int expected_length)
+static int kraken_receive_message(struct kraken_data *kdata, u8 *message,
+                                  int expected_length)
 {
 	int received;
-	int retval = usb_bulk_msg(kdata->udev, usb_rcvbulkpipe(kdata->udev, 2), message, expected_length, &received, 3000);
-	if (retval != 0)
+	u8 *data;
+	int retval = kraken_usb_data(kdata, &data, expected_length);
+	if (retval)
+		return retval;
+	retval = usb_bulk_msg(kdata->udev, usb_rcvbulkpipe(kdata->udev, 2),
+	                      data, expected_length, &received, 3000);
+	if (retval)
 		return retval;
 	if (received != expected_length)
 		return -EIO;
+	memcpy(message, data, expected_length);
 	return 0;
 }
 
@@ -65,8 +80,7 @@ int kraken_driver_update(struct kraken_data *kdata)
 			(retval = kraken_send_message(kdata, data->color_message, 19)) ||
 			(retval = kraken_receive_message(kdata, data->status_message, 32))
 		   )
-			dev_err(&kdata->udev->dev, "Failed to update: %d\n", retval);
-		data->send_color = false;
+			;
 	} else {
 		if (
 			(retval = kraken_start_transaction(kdata)) ||
@@ -74,8 +88,9 @@ int kraken_driver_update(struct kraken_data *kdata)
 			(retval = kraken_send_message(kdata, data->fan_message, 2)) ||
 			(retval = kraken_receive_message(kdata, data->status_message, 32))
 		   )
-			dev_err(&kdata->udev->dev, "Failed to update: %d\n", retval);
+			;
 	}
+	data->send_color = false;
 	return retval;
 }
 

@@ -8,13 +8,6 @@
 #include <linux/string.h>
 #include <linux/usb.h>
 
-static const u8 MSG_HEADER_1[] = {
-	0x04,
-};
-static const u8 MSG_FOOTER_1[] = {
-	0x02, 0x00, 0x01, 0x08,
-};
-
 void status_data_init(struct status_data *data)
 {
 	mutex_init(&data->mutex);
@@ -86,29 +79,25 @@ u16 status_data_unknown_3(struct status_data *data)
 int kraken_x62_update_status(struct kraken_data *kdata,
                              struct status_data *data)
 {
-	bool invalid;
+	u8 *usb_msg;
 	int received;
-	int ret;
-	mutex_lock(&data->mutex);
-	ret = usb_interrupt_msg(kdata->udev, usb_rcvctrlpipe(kdata->udev, 1),
-	                        data->msg, sizeof(data->msg), &received, 1000);
-	mutex_unlock(&data->mutex);
 
+	int ret = kraken_usb_data(kdata, &usb_msg, sizeof(data->msg));
+	if (ret)
+		return ret;
+	ret = usb_interrupt_msg(kdata->udev, usb_rcvctrlpipe(kdata->udev, 1),
+	                        usb_msg, sizeof(data->msg), &received, 1000);
 	if (ret || received != sizeof(data->msg)) {
 		dev_err(&kdata->udev->dev,
 		        "failed status update: I/O error\n");
 		return ret ? ret : 1;
 	}
-	// check header #1 & footer #1
-	invalid = false;
-	if (memcmp(data->msg + 0, MSG_HEADER_1, sizeof(MSG_HEADER_1)) != 0 ||
-	    memcmp(data->msg + 11, MSG_FOOTER_1, sizeof(MSG_FOOTER_1)) != 0) {
-		char status_hex[sizeof(data->msg) * 3 + 1];
-		hex_dump_to_buffer(data->msg, sizeof(data->msg), 32, 1,
-		                   status_hex, sizeof(status_hex), false);
-		dev_err(&kdata->udev->dev,
-		        "received invalid status message: %s\n", status_hex);
-		return 1;
-	}
+	// NOTE: We do not check the header or footer to ensure best possible
+	// compatiblity, as we do not know their purpose.
+
+	mutex_lock(&data->mutex);
+	memcpy(data->msg, usb_msg, sizeof(data->msg));
+	mutex_unlock(&data->mutex);
+
 	return 0;
 }

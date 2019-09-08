@@ -26,21 +26,6 @@ static void percent_msg_set(struct percent_msg *msg, u8 percent)
 	msg->msg[4] = percent;
 }
 
-static int percent_msg_update(struct percent_msg *msg,
-                              struct kraken_data *kdata)
-{
-	int sent;
-	int ret = usb_interrupt_msg(
-		kdata->udev, usb_sndctrlpipe(kdata->udev, 1),
-		msg->msg, sizeof(msg->msg), &sent, 1000);
-	if (ret || sent != sizeof(msg->msg)) {
-		dev_err(&kdata->udev->dev,
-		        "failed to set speed percent: I/O error\n");
-		return ret ? ret : 1;
-	}
-	return 0;
-}
-
 static void percent_data_set(struct percent_data *data, u8 percent)
 {
 	percent_msg_set(&data->msg, percent);
@@ -116,23 +101,38 @@ error:
 int kraken_x62_update_percent(struct kraken_data *kdata,
                               struct percent_data *data)
 {
+	struct percent_msg *usb_msg;
+	int sent;
 	u8 curr;
 	int ret = 0;
 
 	mutex_lock(&data->mutex);
 
-	if (!data->update)
-		goto error;
-	curr = percent_msg_get(&data->msg);
-	if (curr == data->prev)
-		goto error;
-	ret = percent_msg_update(&data->msg, kdata);
+	if (!data->update ||
+	    (curr = percent_msg_get(&data->msg)) == data->prev)
+		goto error_usb_msg;
+
+	ret = kraken_usb_data(kdata, (u8 **)&usb_msg, sizeof(*usb_msg));
 	if (ret)
-		goto error;
+		goto error_usb_msg;
+	memcpy(usb_msg, &data->msg, sizeof(*usb_msg));
+
 	data->prev = curr;
 	data->update = false;
 
-error:
+	mutex_unlock(&data->mutex);
+
+	ret = usb_interrupt_msg(
+		kdata->udev, usb_sndctrlpipe(kdata->udev, 1),
+		usb_msg->msg, sizeof(usb_msg->msg), &sent, 1000);
+	if (ret || sent != sizeof(usb_msg->msg)) {
+		dev_err(&kdata->udev->dev,
+		        "failed to set speed percent: I/O error\n");
+		return ret ? ret : 1;
+	}
+
+	return 0;
+error_usb_msg:
 	mutex_unlock(&data->mutex);
 	return ret;
 }

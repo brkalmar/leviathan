@@ -218,39 +218,34 @@ static int kraken_x62_initialize(struct kraken_data *kdata,
 {
 	u8 len;
 	u8 i;
-	int ret = -ENOMEM;
-	// NOTE: the data buffer of usb_*_msg() must be DMA capable, so data
-	// cannot be stack allocated.
-	//
+	u8 *data;
 	// Space for length byte, type-of-data byte, and serial number encoded
 	// UTF-16.
 	const size_t data_size = 2 + (DATA_SERIAL_NUMBER_SIZE - 1) * 2;
-	u8 *data = kmalloc(data_size, GFP_KERNEL | GFP_DMA);
-	if (data == NULL)
-		goto error_data;
-
+	int ret = kraken_usb_data(kdata, &data, data_size);
+	if (ret)
+		return ret;
 	ret = usb_control_msg(
 		kdata->udev, usb_rcvctrlpipe(kdata->udev, 0),
 		0x06, 0x80, 0x0303, 0x0409, data, data_size, 1000);
 	if (ret < 0) {
 		dev_err(&kdata->udev->dev,
 		        "failed control message: %d\n", ret);
-		goto error_control_msg;
+		return ret;
 	}
+
 	len = data[0] - 2;
 	if (ret < 2 || data[1] != 0x03 || len % 2 != 0) {
 		dev_err(&kdata->udev->dev,
 		        "data received is invalid: %d, %u, %#02x\n",
 		        ret, data[0], data[1]);
-		ret = 1;
-		goto error_control_msg;
+		return 1;
 	}
 	len /= 2;
 	if (len > DATA_SERIAL_NUMBER_SIZE - 1) {
 		dev_err(&kdata->udev->dev,
 		        "data received is too long: %u\n", len);
-		ret = 1;
-		goto error_control_msg;
+		return 1;
 	}
 	// convert UTF-16 serial to null-terminated ASCII string
 	for (i = 0; i < len; i++) {
@@ -262,17 +257,12 @@ static int kraken_x62_initialize(struct kraken_data *kdata,
 			        "UTF-16 %#02x%02x, at index %u\n",
 			        data[index_low + 1], data[index_low],
 			        index_low);
-			ret = 1;
-			goto error_control_msg;
+			return 1;
 		}
 	}
 	serial_number[i] = '\0';
 
-	ret = 0;
-error_control_msg:
-	kfree(data);
-error_data:
-	return ret;
+	return 0;
 }
 
 int kraken_driver_probe(struct usb_interface *interface,
