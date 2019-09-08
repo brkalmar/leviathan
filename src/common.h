@@ -23,6 +23,8 @@ struct kraken_data {
 
 	// Handle to the usb device.
 	struct usb_device *udev;
+	// Handle to the driver device.
+	struct device *dev;
 
 	// Shared USB message data buffer.  Expanded each time a bigger buffer
 	// than already allocated is requested.

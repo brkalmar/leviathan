@@ -641,6 +641,7 @@ error:
 
 int kraken_x62_update_led(struct kraken_data *kdata, struct led_data *data)
 {
+	struct device *dev = kdata->dev;
 	struct led_batch *usb_batch;
 	int sent;
 	u8 i;
@@ -668,8 +669,7 @@ int kraken_x62_update_led(struct kraken_data *kdata, struct led_data *data)
 			usb_batch->cycles[i].msg,
 			sizeof(usb_batch->cycles[i].msg), &sent, 1000);
 		if (ret || sent != sizeof(usb_batch->cycles[i].msg)) {
-			dev_err(&kdata->udev->dev,
-			        "failed to set LED cycle %u\n", i);
+			dev_err(dev, "failed to set LED cycle %u\n", i);
 			return ret ? ret : 1;
 		}
 	}

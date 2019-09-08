@@ -101,6 +101,7 @@ error:
 int kraken_x62_update_percent(struct kraken_data *kdata,
                               struct percent_data *data)
 {
+	struct device *dev = kdata->dev;
 	struct percent_msg *usb_msg;
 	int sent;
 	u8 curr;
@@ -126,8 +127,7 @@ int kraken_x62_update_percent(struct kraken_data *kdata,
 		kdata->udev, usb_sndctrlpipe(kdata->udev, 1),
 		usb_msg->msg, sizeof(usb_msg->msg), &sent, 1000);
 	if (ret || sent != sizeof(usb_msg->msg)) {
-		dev_err(&kdata->udev->dev,
-		        "failed to set speed percent: I/O error\n");
+		dev_err(dev, "failed to set speed percent: I/O error\n");
 		return ret ? ret : 1;
 	}
 

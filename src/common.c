@@ -69,6 +69,7 @@ static void kraken_update_work(struct work_struct *update_work)
 {
 	struct kraken_data *kdata
 		= container_of(update_work, struct kraken_data, update_work);
+	struct device *dev = kdata->dev;
 	int retval = kraken_driver_update(kdata);
 
 	// tell any waiting update syncs that the update has finished
@@ -77,18 +78,18 @@ static void kraken_update_work(struct work_struct *update_work)
 
 	// last update failed: halt updates
 	if (retval) {
-		dev_err(&kdata->udev->dev, "last update failed: %d\n", retval);
+		dev_err(dev, "last update failed: %d\n", retval);
 		kdata->update = false;
 	}
 
 	// re-queue this work if updates are still on
 	if (!kdata->update) {
-		dev_info(&kdata->udev->dev, "halting updates: turned off\n");
+		dev_info(dev, "halting updates: turned off\n");
 		return;
 	}
 	retval = queue_work(kdata->update_workqueue, &kdata->update_work);
 	if (!retval) {
-		dev_err(&kdata->udev->dev, "update work already on a queue\n");
+		dev_err(dev, "update work already on a queue\n");
 		kdata->update = false;
 	}
 }
@@ -154,6 +155,7 @@ int kraken_probe(struct usb_interface *interface,
 	char workqueue_name[64];
 	int retval = -ENOMEM;
 	struct usb_device *udev = interface_to_usbdev(interface);
+	struct device *dev = &interface->dev;
 
 	struct kraken_data *kdata = kmalloc(sizeof(*kdata), GFP_KERNEL);
 	if (kdata == NULL)
@@ -168,6 +170,7 @@ int kraken_probe(struct usb_interface *interface,
 		goto error_usb_data;
 
 	kdata->udev = usb_get_dev(udev);
+	kdata->dev = dev;
 	usb_set_intfdata(interface, kdata);
 
 	retval = kraken_driver_probe(interface, id);
@@ -187,23 +190,21 @@ int kraken_probe(struct usb_interface *interface,
 		retval = queue_work(kdata->update_workqueue,
 		                    &kdata->update_work);
 		if (!retval) {
-			dev_err(&kdata->udev->dev,
-			        "update work already on a queue\n");
+			dev_err(dev, "update work already on a queue\n");
 			retval = 1;
 			goto error_queue_work;
 		}
 	} else {
-		dev_info(&interface->dev, "not starting updates: turned off\n");
+		dev_info(dev, "not starting updates: turned off\n");
 	}
 
 	retval = kraken_create_groups(interface);
 	if (retval) {
-		dev_err(&interface->dev,
-		        "failed to create device files: %d\n", retval);
+		dev_err(dev, "failed to create device files: %d\n", retval);
 		goto error_create_groups;
 	}
 
-	dev_info(&interface->dev, "device connected\n");
+	dev_info(dev, "device connected\n");
 
 	return 0;
 error_create_groups:

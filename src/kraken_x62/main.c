@@ -216,6 +216,7 @@ const struct attribute_group *kraken_driver_groups[] = {
 static int kraken_x62_initialize(struct kraken_data *kdata,
                                  char serial_number[])
 {
+	struct device *dev = kdata->dev;
 	u8 len;
 	u8 i;
 	u8 *data;
@@ -229,22 +230,19 @@ static int kraken_x62_initialize(struct kraken_data *kdata,
 		kdata->udev, usb_rcvctrlpipe(kdata->udev, 0),
 		0x06, 0x80, 0x0303, 0x0409, data, data_size, 1000);
 	if (ret < 0) {
-		dev_err(&kdata->udev->dev,
-		        "failed control message: %d\n", ret);
+		dev_err(dev, "failed control message: %d\n", ret);
 		return ret;
 	}
 
 	len = data[0] - 2;
 	if (ret < 2 || data[1] != 0x03 || len % 2 != 0) {
-		dev_err(&kdata->udev->dev,
-		        "data received is invalid: %d, %u, %#02x\n",
+		dev_err(dev, "data received is invalid: %d, %u, %#02x\n",
 		        ret, data[0], data[1]);
 		return 1;
 	}
 	len /= 2;
 	if (len > DATA_SERIAL_NUMBER_SIZE - 1) {
-		dev_err(&kdata->udev->dev,
-		        "data received is too long: %u\n", len);
+		dev_err(dev, "data received is too long: %u\n", len);
 		return 1;
 	}
 	// convert UTF-16 serial to null-terminated ASCII string
@@ -252,7 +250,7 @@ static int kraken_x62_initialize(struct kraken_data *kdata,
 		const u8 index_low = 2 + 2 * i;
 		serial_number[i] = data[index_low];
 		if (data[index_low + 1] != 0x00) {
-			dev_err(&kdata->udev->dev,
+			dev_err(dev,
 			        "serial number contains non-ASCII character: "
 			        "UTF-16 %#02x%02x, at index %u\n",
 			        data[index_low + 1], data[index_low],
@@ -270,13 +268,14 @@ int kraken_driver_probe(struct usb_interface *interface,
 {
 	struct kraken_data *kdata = usb_get_intfdata(interface);
 	struct kraken_driver_data *data = kdata->data;
+	struct device *dev = kdata->dev;
 	int ret;
 
 	kraken_driver_data_init(data);
 
 	ret = kraken_x62_initialize(kdata, data->serial_number);
 	if (ret) {
-		dev_err(&interface->dev, "failed to initialize: %d\n", ret);
+		dev_err(dev, "failed to initialize: %d\n", ret);
 		return ret;
 	}
 

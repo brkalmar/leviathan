@@ -79,6 +79,7 @@ u16 status_data_unknown_3(struct status_data *data)
 int kraken_x62_update_status(struct kraken_data *kdata,
                              struct status_data *data)
 {
+	struct device *dev = kdata->dev;
 	u8 *usb_msg;
 	int received;
 
@@ -88,8 +89,7 @@ int kraken_x62_update_status(struct kraken_data *kdata,
 	ret = usb_interrupt_msg(kdata->udev, usb_rcvctrlpipe(kdata->udev, 1),
 	                        usb_msg, sizeof(data->msg), &received, 1000);
 	if (ret || received != sizeof(data->msg)) {
-		dev_err(&kdata->udev->dev,
-		        "failed status update: I/O error\n");
+		dev_err(dev, "failed status update: I/O error\n");
 		return ret ? ret : 1;
 	}
 	// NOTE: We do not check the header or footer to ensure best possible
