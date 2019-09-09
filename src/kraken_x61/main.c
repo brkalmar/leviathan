@@ -110,32 +110,21 @@ u32 kraken_driver_get_pump_rpm(struct kraken_data *kdata)
 	return 256 * data->status_message[8] + data->status_message[9];
 }
 
-static ssize_t show_speed(struct device *dev, struct device_attribute *attr,
-                          char *buf)
+int kraken_driver_set_fan_percent(struct kraken_data *kdata, u32 value)
 {
-	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
-	struct kraken_driver_data *data = kdata->data;
-
-	return scnprintf(buf, PAGE_SIZE, "%u\n", data->pump_message[1]);
-}
-
-static ssize_t set_speed(struct device *dev, struct device_attribute *attr,
-                         const char *buf, size_t count)
-{
-	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
-	struct kraken_driver_data *data = kdata->data;
-
-	u8 speed;
-	if (sscanf(buf, "%hhu", &speed) != 1 || speed < 30 || speed > 100)
+	if (value < 30 || value > 100)
 		return -EINVAL;
-
-	data->pump_message[1] = speed;
-	data->fan_message[1] = speed;
-
-	return count;
+	kdata->data->fan_message[1] = value;
+	return 0;
 }
 
-static DEVICE_ATTR(speed, S_IRUGO | S_IWUSR | S_IWGRP, show_speed, set_speed);
+int kraken_driver_set_pump_percent(struct kraken_data *kdata, u32 value)
+{
+	if (value < 30 || value > 100)
+		return -EINVAL;
+	kdata->data->pump_message[1] = value;
+	return 0;
+}
 
 static ssize_t show_color(struct device *dev, struct device_attribute *attr,
                           char *buf)
@@ -282,7 +271,6 @@ static ssize_t set_mode(struct device *dev, struct device_attribute *attr,
 static DEVICE_ATTR(mode, S_IRUGO | S_IWUSR | S_IWGRP, show_mode, set_mode);
 
 static struct attribute *kraken_x61_group_attrs[] = {
-	&dev_attr_speed.attr,
 	&dev_attr_color.attr,
 	&dev_attr_alternate_color.attr,
 	&dev_attr_interval.attr,

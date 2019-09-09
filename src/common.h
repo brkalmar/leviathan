@@ -76,6 +76,20 @@ extern u32 kraken_driver_get_fan_rpm(struct kraken_data *kdata);
 extern u32 kraken_driver_get_pump_rpm(struct kraken_data *kdata);
 
 /**
+ * The driver's write-only fan attribute [%].
+ *
+ * Return: 0 on success, -EINVAL if the value is invalid.
+ */
+extern int kraken_driver_set_fan_percent(struct kraken_data *kdata, u32 value);
+
+/**
+ * The driver's write-only pump attribute [%].
+ *
+ * Return: 0 on success, -EINVAL if the value is invalid.
+ */
+extern int kraken_driver_set_pump_percent(struct kraken_data *kdata, u32 value);
+
+/**
  * Driver-specific device attribute file groups.  Created in kraken_probe() and
  * removed in kraken_disconnect().
  */

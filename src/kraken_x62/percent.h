@@ -28,8 +28,7 @@ struct percent_data {
 };
 
 void percent_data_init(struct percent_data *data, enum percent_msg_which which);
-int percent_data_parse(struct percent_data *data, struct device *dev,
-                       const char *attr, const char *buf);
+int percent_data_set(struct percent_data *data, u8 percent);
 
 int kraken_x62_update_percent(struct kraken_data *kdata,
                               struct percent_data *data);

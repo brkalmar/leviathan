@@ -76,6 +76,20 @@ u32 kraken_driver_get_pump_rpm(struct kraken_data *kdata)
 	return status_data_pump_rpm(&kdata->data->status);
 }
 
+int kraken_driver_set_fan_percent(struct kraken_data *kdata, u32 value)
+{
+	if (value > U8_MAX)
+		return -EINVAL;
+	return percent_data_set(&kdata->data->percent_fan, value);
+}
+
+int kraken_driver_set_pump_percent(struct kraken_data *kdata, u32 value)
+{
+	if (value > U8_MAX)
+		return -EINVAL;
+	return percent_data_set(&kdata->data->percent_pump, value);
+}
+
 static ssize_t serial_no_show(struct device *dev, struct device_attribute *attr,
                               char *buf)
 {
@@ -114,38 +128,6 @@ static ssize_t unknown_3_show(struct device *dev, struct device_attribute *attr,
 }
 
 static DEVICE_ATTR_RO(unknown_3);
-
-static ssize_t attr_percent_store(struct percent_data *data, struct device *dev,
-                                  struct device_attribute *attr,
-                                  const char *buf, size_t count)
-{
-	int ret = percent_data_parse(data, dev, attr->attr.name, buf);
-	if (ret)
-		return -EINVAL;
-	return count;
-}
-
-static ssize_t fan_percent_store(struct device *dev,
-                                 struct device_attribute *attr, const char *buf,
-                                 size_t count)
-{
-	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
-	return attr_percent_store(&kdata->data->percent_fan, dev, attr, buf,
-	                          count);
-}
-
-static DEVICE_ATTR_WO(fan_percent);
-
-static ssize_t pump_percent_store(struct device *dev,
-                                  struct device_attribute *attr,
-                                  const char *buf, size_t count)
-{
-	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
-	return attr_percent_store(&kdata->data->percent_pump, dev, attr, buf,
-	                          count);
-}
-
-static DEVICE_ATTR_WO(pump_percent);
 
 static ssize_t attr_led_store(struct led_data *data, struct device *dev,
                               struct device_attribute *attr, const char *buf,
@@ -191,8 +173,6 @@ static struct attribute *kraken_x62_group_attrs[] = {
 	&dev_attr_unknown_1.attr,
 	&dev_attr_unknown_2.attr,
 	&dev_attr_unknown_3.attr,
-	&dev_attr_fan_percent.attr,
-	&dev_attr_pump_percent.attr,
 	&dev_attr_led_logo.attr,
 	&dev_attr_leds_ring.attr,
 	&dev_attr_leds_sync.attr,

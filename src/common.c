@@ -2,6 +2,7 @@
  */
 
 #include "common.h"
+#include "util.h"
 
 #include <linux/freezer.h>
 #include <linux/moduleparam.h>
@@ -123,12 +124,48 @@ static ssize_t pump_rpm_show(struct device *dev,  struct device_attribute *attr,
 
 static DEVICE_ATTR_RO(pump_rpm);
 
+static ssize_t fan_percent_store(struct device *dev,
+                                 struct device_attribute *attr, const char *buf,
+                                 size_t count)
+{
+	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
+	u32 value;
+	int res = kraken_parse_percent(&buf, &value);
+	if (res)
+		return res;
+	res = kraken_driver_set_fan_percent(kdata, value);
+	if (res)
+		return res;
+	return count;
+}
+
+static DEVICE_ATTR_WO(fan_percent);
+
+static ssize_t pump_percent_store(
+	struct device *dev, struct device_attribute *attr, const char *buf,
+	size_t count)
+{
+	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
+	u32 value;
+	int res = kraken_parse_percent(&buf, &value);
+	if (res)
+		return res;
+	res = kraken_driver_set_pump_percent(kdata, value);
+	if (res)
+		return res;
+	return count;
+}
+
+static DEVICE_ATTR_WO(pump_percent);
+
 static struct attribute *kraken_group_attrs[] = {
 	&dev_attr_update.attr,
 	&dev_attr_update_sync.attr,
 	&dev_attr_temp.attr,
 	&dev_attr_fan_rpm.attr,
 	&dev_attr_pump_rpm.attr,
+	&dev_attr_fan_percent.attr,
+	&dev_attr_pump_percent.attr,
 	NULL,
 };
 

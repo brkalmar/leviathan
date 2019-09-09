@@ -26,11 +26,6 @@ static void percent_msg_set(struct percent_msg *msg, u8 percent)
 	msg->msg[4] = percent;
 }
 
-static void percent_data_set(struct percent_data *data, u8 percent)
-{
-	percent_msg_set(&data->msg, percent);
-}
-
 void percent_data_init(struct percent_data *data, enum percent_msg_which which)
 {
 	switch (which) {
@@ -52,48 +47,17 @@ void percent_data_init(struct percent_data *data, enum percent_msg_which which)
 	mutex_init(&data->mutex);
 }
 
-int percent_data_parse(struct percent_data *data, struct device *dev,
-                       const char *attr, const char *buf)
+int percent_data_set(struct percent_data *data, u8 percent)
 {
-	char percent_str[WORD_LEN_MAX];
-	unsigned int percent_ui;
-	u8 percent;
-
-	int ret = kraken_scan_word(&buf, percent_str);
-	if (ret) {
-		dev_warn(dev, "%s: missing percent\n", attr);
-		goto error;
-	}
-	ret = kstrtouint(percent_str, 0, &percent_ui);
-	if (ret) {
-		dev_warn(dev, "%s: invalid percent %s\n", attr, percent_str);
-		goto error;
-	}
-	if (buf[0] != '\0') {
-		dev_warn(dev, "%s: unrecognized data left in buffer: `%s'\n",
-		         attr, buf);
-		ret = 1;
-		goto error;
-	}
-
+	int ret = -EINVAL;
 	mutex_lock(&data->mutex);
-
-	if (percent_ui < data->percent_min) {
-		percent = data->percent_min;
-	} else if (percent_ui > data->percent_max) {
-		percent = data->percent_max;
-	} else {
-		percent = percent_ui;
-	}
-	percent_data_set(data, percent);
-
+	if (percent < data->percent_min || percent > data->percent_max)
+		goto error;
+	percent_msg_set(&data->msg, percent);
 	data->update = true;
-	mutex_unlock(&data->mutex);
-	return 0;
 
+	ret = 0;
 error:
-	mutex_lock(&data->mutex);
-	data->update = false;
 	mutex_unlock(&data->mutex);
 	return ret;
 }
