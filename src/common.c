@@ -52,7 +52,7 @@ static ssize_t update_store(struct device *dev, struct device_attribute *attr,
 {
 	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
 	bool update;
-	int ret = kstrtobool(buf, &update);
+	int ret = kraken_parse_bool(&buf, &update);
 	if (ret)
 		return ret;
 	// update is false: halt updates
@@ -89,7 +89,7 @@ static ssize_t update_sync_show(struct device *dev,
 	int ret;
 	kdata->update_sync_condition = false;
 	ret = !wait_event_interruptible(kdata->update_sync_waitqueue,
-	                                   kdata->update_sync_condition);
+	                                kdata->update_sync_condition);
 	return scnprintf(buf, PAGE_SIZE, "%d\n", ret);
 }
 

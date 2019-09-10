@@ -8,24 +8,21 @@
 #include <linux/string.h>
 #include <linux/usb.h>
 
-static const u8 LED_MSG_HEADER[] = {
-	0x02, 0x4c,
+enum led_which {
+	LED_WHICH_SYNC = 0b000,
+	LED_WHICH_LOGO = 0b001,
+	LED_WHICH_RING = 0b010,
 };
-
-static void led_msg_init(struct led_msg *msg)
-{
-	memcpy(msg->msg, LED_MSG_HEADER, sizeof(LED_MSG_HEADER));
-}
 
 static void led_msg_which(struct led_msg *msg, enum led_which which)
 {
-	msg->msg[2] &= ~0b111;
-	msg->msg[2] |= (u8) which;
+	msg->msg[2] &= ~(0b111 << 0);
+	msg->msg[2] |= ((u8) which) << 0;
 }
 
 static enum led_which led_msg_which_get(const struct led_msg *msg)
 {
-	const enum led_which which = msg->msg[2] & 0b111;
+	const enum led_which which = (msg->msg[2] >> 0) & 0b111;
 	return which;
 }
 
@@ -43,34 +40,7 @@ enum led_preset {
 	LED_PRESET_LOAD             = 0x0a,
 };
 
-static int led_preset_from_str(enum led_preset *preset, const char *str)
-{
-	if (strcasecmp(str, "fixed") == 0)
-		*preset = LED_PRESET_FIXED;
-	else if (strcasecmp(str, "fading") == 0)
-		*preset = LED_PRESET_FADING;
-	else if (strcasecmp(str, "spectrum_wave") == 0)
-		*preset = LED_PRESET_SPECTRUM_WAVE;
-	else if (strcasecmp(str, "marquee") == 0)
-		*preset = LED_PRESET_MARQUEE;
-	else if (strcasecmp(str, "covering_marquee") == 0)
-		*preset = LED_PRESET_COVERING_MARQUEE;
-	else if (strcasecmp(str, "alternating") == 0)
-		*preset = LED_PRESET_ALTERNATING;
-	else if (strcasecmp(str, "breathing") == 0)
-		*preset = LED_PRESET_BREATHING;
-	else if (strcasecmp(str, "pulse") == 0)
-		*preset = LED_PRESET_PULSE;
-	else if (strcasecmp(str, "tai_chi") == 0)
-		*preset = LED_PRESET_TAI_CHI;
-	else if (strcasecmp(str, "water_cooler") == 0)
-		*preset = LED_PRESET_WATER_COOLER;
-	else if (strcasecmp(str, "load") == 0)
-		*preset = LED_PRESET_LOAD;
-	else
-		return 1;
-	return 0;
-}
+#define LED_PRESET_DEFAULT LED_PRESET_LOAD
 
 static void led_msg_preset(struct led_msg *msg, enum led_preset preset)
 {
@@ -83,9 +53,9 @@ static enum led_preset led_msg_preset_get(const struct led_msg *msg)
 	return preset;
 }
 
-static bool led_msg_preset_is_legal(const struct led_msg *msg,
-                                    enum led_preset preset)
+static bool led_msg_preset_is_legal(const struct led_msg *msg)
 {
+	const enum led_preset preset = led_msg_preset_get(msg);
 	// ring leds accept any preset
 	if (led_msg_which_get(msg) == LED_WHICH_RING)
 		return true;
@@ -105,20 +75,20 @@ static bool led_msg_preset_is_legal(const struct led_msg *msg,
 
 #define LED_MOVING_DEFAULT false
 
-static int led_moving_from_str(bool *moving, const char *str)
-{
-	int ret;
-	ret = kstrtobool(str, moving);
-	return ret;
-}
-
 static void led_msg_moving(struct led_msg *msg, bool moving)
 {
 	msg->msg[2] &= ~(0b1 << 3);
 	msg->msg[2] |= ((u8) moving) << 3;
 }
 
-static bool led_msg_moving_is_legal(const struct led_msg *msg, bool moving) {
+static bool led_msg_moving_get(const struct led_msg *msg)
+{
+	const bool moving = (msg->msg[2] >> 3) & 0b1;
+	return moving;
+}
+
+static bool led_msg_moving_is_legal(const struct led_msg *msg) {
+	const bool moving = led_msg_moving_get(msg);
 	if (moving == LED_MOVING_DEFAULT)
 		return true;
 	switch (led_msg_preset_get(msg)) {
@@ -136,27 +106,21 @@ enum led_direction {
 
 #define LED_DIRECTION_DEFAULT LED_DIRECTION_CLOCKWISE
 
-static int led_direction_from_str(enum led_direction *direction,
-                                  const char *str)
-{
-	if (strcasecmp(str, "forward") == 0)
-		*direction = LED_DIRECTION_CLOCKWISE;
-	else if (strcasecmp(str, "backward") == 0)
-		*direction = LED_DIRECTION_COUNTERCLOCKWISE;
-	else
-		return 1;
-	return 0;
-}
-
 static void led_msg_direction(struct led_msg *msg, enum led_direction direction)
 {
 	msg->msg[2] &= ~(0b1111 << 4);
 	msg->msg[2] |= ((u8) direction) << 4;
 }
 
-static bool led_msg_direction_is_legal(const struct led_msg *msg,
-                                       enum led_direction direction)
+static enum led_direction led_msg_direction_get(const struct led_msg *msg)
 {
+	const enum led_direction direction = (msg->msg[2] >> 4) & 0b1111;
+	return direction;
+}
+
+static bool led_msg_direction_is_legal(const struct led_msg *msg)
+{
+	const enum led_direction direction = led_msg_direction_get(msg);
 	if (direction == LED_DIRECTION_DEFAULT)
 		return true;
 	switch (led_msg_preset_get(msg)) {
@@ -177,34 +141,23 @@ enum led_interval {
 	LED_INTERVAL_FASTEST = 0b100,
 };
 
-#define LED_INTERVAL_DEFAULT   LED_INTERVAL_NORMAL
-
-static int led_interval_from_str(enum led_interval *interval, const char *str)
-{
-	if (strcasecmp(str, "slowest") == 0)
-		*interval = LED_INTERVAL_SLOWEST;
-	else if (strcasecmp(str, "slower") == 0)
-		*interval = LED_INTERVAL_SLOWER;
-	else if (strcasecmp(str, "normal") == 0)
-		*interval = LED_INTERVAL_NORMAL;
-	else if (strcasecmp(str, "faster") == 0)
-		*interval = LED_INTERVAL_FASTER;
-	else if (strcasecmp(str, "fastest") == 0)
-		*interval = LED_INTERVAL_FASTEST;
-	else
-		return 1;
-	return 0;
-}
+#define LED_INTERVAL_DEFAULT LED_INTERVAL_NORMAL
 
 static void led_msg_interval(struct led_msg *msg, enum led_interval interval)
 {
-	msg->msg[4] &= ~0b111;
-	msg->msg[4] |= (u8) interval;
+	msg->msg[4] &= ~(0b111 << 0);
+	msg->msg[4] |= ((u8) interval) << 0;
 }
 
-static bool led_msg_interval_is_legal(const struct led_msg *msg,
-                                      enum led_interval interval)
+static enum led_interval led_msg_interval_get(const struct led_msg *msg)
 {
+	const enum led_interval interval = (msg->msg[4] >> 0) & 0b111;
+	return interval;
+}
+
+static bool led_msg_interval_is_legal(const struct led_msg *msg)
+{
+	const enum led_interval interval = led_msg_interval_get(msg);
 	if (interval == LED_INTERVAL_DEFAULT)
 		return true;
 	switch (led_msg_preset_get(msg)) {
@@ -227,27 +180,22 @@ static bool led_msg_interval_is_legal(const struct led_msg *msg,
 #define LED_GROUP_SIZE_MAX     ((u8) 6)
 #define LED_GROUP_SIZE_DEFAULT ((u8) 3)
 
-static int led_group_size_from_str(u8 *group_size, const char *str)
-{
-	int ret;
-	unsigned int n;
-	ret = kstrtouint(str, 0, &n);
-	if (ret || n < LED_GROUP_SIZE_MIN || n > LED_GROUP_SIZE_MAX)
-		return ret ? ret : 1;
-	*group_size = n;
-	return 0;
-}
-
 static void led_msg_group_size(struct led_msg *msg, u8 group_size)
 {
-	group_size = (group_size - LED_GROUP_SIZE_MIN) & 0b11;
+	group_size -= LED_GROUP_SIZE_MIN;
 	msg->msg[4] &= ~(0b11 << 3);
-	msg->msg[4] |= group_size << 3;
+	msg->msg[4] |= (group_size & 0b11) << 3;
 }
 
-static bool led_msg_group_size_is_legal(const struct led_msg *msg,
-                                        u8 group_size)
+static u8 led_msg_group_size_get(const struct led_msg *msg)
 {
+	const u8 group_size = (msg->msg[4] >> 3) & 0b11;
+	return group_size + LED_GROUP_SIZE_MIN;
+}
+
+static bool led_msg_group_size_is_legal(const struct led_msg *msg)
+{
+	const u8 group_size = led_msg_group_size_get(msg);
 	if (group_size == LED_GROUP_SIZE_DEFAULT)
 		return true;
 	switch (led_msg_preset_get(msg)) {
@@ -265,38 +213,8 @@ static void led_msg_cycle(struct led_msg *msg, u8 cycle)
 	msg->msg[4] |= cycle << 5;
 }
 
-struct led_color {
-	u8 red;
-	u8 green;
-	u8 blue;
-};
-
-static int led_color_from_str(struct led_color *color, const char *str)
-{
-	char hex[7];
-	unsigned long rgb;
-	int ret;
-	switch (strlen(str)) {
-	case 6:
-		// RRGGBB
-		memcpy(hex, str, 6);
-		break;
-	default:
-		return 1;
-	}
-	hex[6] = '\0';
-
-	ret = kstrtoul(hex, 16, &rgb);
-	if (ret)
-		return ret;
-	color->red   = (rgb >> 16) & 0xff;
-	color->green = (rgb >>  8) & 0xff;
-	color->blue  = (rgb >>  0) & 0xff;
-	return 0;
-}
-
 static void led_msg_color_logo(struct led_msg *msg,
-                               const struct led_color *color)
+                               const struct kraken_color *color)
 {
 	// NOTE: the logo color is in GRB format
 	msg->msg[5] = color->green;
@@ -307,7 +225,7 @@ static void led_msg_color_logo(struct led_msg *msg,
 #define LED_MSG_COLORS_RING ((size_t) 8)
 
 static void led_msg_colors_ring(struct led_msg *msg,
-                                const struct led_color *colors)
+                                const struct kraken_color *colors)
 {
 	size_t i;
 	for (i = 0; i < LED_MSG_COLORS_RING; i++) {
@@ -318,325 +236,369 @@ static void led_msg_colors_ring(struct led_msg *msg,
 	}
 }
 
+static const u8 LED_MSG_HEADER[] = {
+	0x02, 0x4c,
+};
 
-static void led_batch_init(struct led_batch *batch, enum led_which which)
+static void led_msg_init(struct led_msg *msg)
 {
-	u8 i;
-	for (i = 0; i < ARRAY_SIZE(batch->cycles); i++) {
-		struct led_msg *msg = &batch->cycles[i];
-		led_msg_init(msg);
-		led_msg_which(msg, which);
-		led_msg_cycle(msg, i);
-	}
+	memcpy(msg->msg, LED_MSG_HEADER, sizeof(LED_MSG_HEADER));
+	led_msg_preset(msg, LED_PRESET_DEFAULT);
+	led_msg_moving(msg, LED_MOVING_DEFAULT);
+	led_msg_direction(msg, LED_DIRECTION_DEFAULT);
+	led_msg_interval(msg, LED_INTERVAL_DEFAULT);
+	led_msg_group_size(msg, LED_GROUP_SIZE_DEFAULT);
 }
 
-void led_data_init(struct led_data *data, enum led_which which)
+static bool led_batch_preset_is_legal(const struct led_batch *batch)
 {
-	led_batch_init(&data->batch, which);
-	// this will never be confused for a real batch
-	data->prev.len = 0;
-	data->update = false;
-
-	mutex_init(&data->mutex);
-}
-
-static int parse_preset_check_len(
-	enum led_preset preset, const struct led_batch *batch,
-	struct device *dev, const char *attr)
-{
-	bool ok = false;
+	const enum led_preset preset = led_msg_preset_get(&batch->cycles[0]);
 	switch (preset) {
 	case LED_PRESET_FIXED:
 	case LED_PRESET_SPECTRUM_WAVE:
 	case LED_PRESET_MARQUEE:
 	case LED_PRESET_WATER_COOLER:
 	case LED_PRESET_LOAD:
-		ok = batch->len == 1;
+		return batch->len == 1;
 		break;
 	case LED_PRESET_ALTERNATING:
 	case LED_PRESET_TAI_CHI:
-		ok = batch->len == 2;
+		return batch->len == 2;
 		break;
 	case LED_PRESET_FADING:
 	case LED_PRESET_COVERING_MARQUEE:
 	case LED_PRESET_BREATHING:
 	case LED_PRESET_PULSE:
-		ok = batch->len >= 1 && batch->len <= LED_BATCH_CYCLES_SIZE;
+		return batch->len >= 1 && batch->len <= LED_BATCH_CYCLES_SIZE;
 		break;
 	}
-	if (!ok)
-		dev_warn(dev, "%s: invalid nr of cycles %u for given preset\n",
-		         attr, batch->len);
-	return !ok;
+	return false;
 }
 
-static int parse_preset(struct led_batch *batch, struct device *dev,
-                        const char *attr, const char **buf)
+static void led_batch_init(struct led_batch *batch)
 {
-	char preset_str[WORD_LEN_MAX];
-	enum led_preset preset;
 	u8 i;
-	int ret = kraken_scan_word(buf, preset_str);
-	if (ret) {
-		dev_warn(dev, "%s: missing preset\n", attr);
-		return ret;
+	for (i = 0; i < ARRAY_SIZE(batch->cycles); i++) {
+		struct led_msg *msg = &batch->cycles[i];
+		led_msg_init(msg);
+		led_msg_cycle(msg, i);
 	}
-	ret = led_preset_from_str(&preset, preset_str);
-	if (ret) {
-		dev_warn(dev, "%s: invalid preset %s\n", attr, preset_str);
-		return ret;
-	}
-	if (!led_msg_preset_is_legal(&batch->cycles[0], preset)) {
-		dev_warn(dev, "%s: illegal preset %s for LED(s)\n", attr,
-		         preset_str);
-		return 1;
-	}
-	ret = parse_preset_check_len(preset, batch, dev, attr);
-	if (ret)
-		return ret;
-	for (i = 0; i < batch->len; i++)
-		led_msg_preset(&batch->cycles[i], preset);
-	return 0;
+	batch->len = 1;
 }
 
-static int parse_moving(struct led_batch *batch, struct device *dev,
-                        const char *attr, const char **buf)
+static bool led_data_colors_logo_is_legal(const struct led_data *data)
 {
-	char moving_str[WORD_LEN_MAX];
-	bool moving;
-	u8 i;
-	int ret = kraken_scan_word(buf, moving_str);
-	if (ret) {
-		dev_warn(dev, "%s: missing moving\n", attr);
-		return ret;
-	}
-	ret = led_moving_from_str(&moving, moving_str);
-	if (ret) {
-		dev_warn(dev, "%s: invalid moving %s\n", attr, moving_str);
-		return ret;
-	}
-	if (!led_msg_moving_is_legal(&batch->cycles[0], moving)) {
-		dev_warn(dev, "%s: illegal moving %d for the given preset\n",
-		         attr, moving);
-		return 1;
-	}
-	for (i = 0; i < batch->len; i++)
-		led_msg_moving(&batch->cycles[i], moving);
-	return 0;
-}
-
-static int parse_direction(struct led_batch *batch, struct device *dev,
-                           const char *attr, const char **buf)
-{
-	char direction_str[WORD_LEN_MAX];
-	enum led_direction direction;
-	u8 i;
-	int ret = kraken_scan_word(buf, direction_str);
-	if (ret) {
-		dev_warn(dev, "%s: missing direction\n", attr);
-		return ret;
-	}
-	ret = led_direction_from_str(&direction, direction_str);
-	if (ret) {
-		dev_warn(dev, "%s: invalid direction %s\n", attr,
-		         direction_str);
-		return ret;
-	}
-	if (!led_msg_direction_is_legal(&batch->cycles[0], direction)) {
-		dev_warn(dev, "%s: illegal direction %s for the given preset\n",
-		         attr, direction_str);
-		return 1;
-	}
-	for (i = 0; i < batch->len; i++)
-		led_msg_direction(&batch->cycles[i], direction);
-	return 0;
-}
-
-static int parse_interval(struct led_batch *batch, struct device *dev,
-                          const char *attr, const char **buf)
-{
-	char interval_str[WORD_LEN_MAX];
-	enum led_interval interval;
-	u8 i;
-	int ret = kraken_scan_word(buf, interval_str);
-	if (ret) {
-		dev_warn(dev, "%s: missing interval\n", attr);
-		return ret;
-	}
-	ret = led_interval_from_str(&interval, interval_str);
-	if (ret) {
-		dev_warn(dev, "%s: invalid interval %s\n", attr, interval_str);
-		return ret;
-	}
-	if (!led_msg_interval_is_legal(&batch->cycles[0], interval)) {
-		dev_warn(dev, "%s: illegal interval %s for the given preset\n",
-		         attr, interval_str);
-		return 1;
-	}
-	for (i = 0; i < batch->len; i++)
-		led_msg_interval(&batch->cycles[i], interval);
-	return 0;
-}
-
-static int parse_group_size(struct led_batch *batch, struct device *dev,
-                            const char *attr, const char **buf)
-{
-	char group_size_str[WORD_LEN_MAX];
-	u8 group_size;
-	u8 i;
-	int ret = kraken_scan_word(buf, group_size_str);
-	if (ret) {
-		dev_warn(dev, "%s: missing group size\n", attr);
-		return ret;
-	}
-	ret = led_group_size_from_str(&group_size, group_size_str);
-	if (ret) {
-		dev_warn(dev, "%s: invalid group size %s\n", attr,
-		         group_size_str);
-		return ret;
-	}
-	if (!led_msg_group_size_is_legal(&batch->cycles[0], group_size)) {
-		dev_warn(dev,
-		         "%s: illegal group size %u for the given preset\n",
-		         attr, group_size);
-		return 1;
-	}
-	for (i = 0; i < batch->len; i++)
-		led_msg_group_size(&batch->cycles[i], group_size);
-	return 0;
-}
-
-static int parse_cycles(struct led_batch *batch, struct device *dev,
-                        const char *attr, const char **buf)
-{
-	char len_str[WORD_LEN_MAX];
-	unsigned int len;
-	int ret = kraken_scan_word(buf, len_str);
-	if (ret) {
-		dev_warn(dev, "%s: missing cycles\n", attr);
-		return ret;
-	}
-	ret = kstrtouint(len_str, 0, &len);
-	if (ret || len < 1 || len > LED_BATCH_CYCLES_SIZE) {
-		dev_warn(dev, "%s: invalid cycles %s\n", attr, len_str);
-		return ret ? ret : 1;
-	}
-	batch->len = len;
-	return 0;
-}
-
-static int parse_color_logo(struct led_msg *msg, struct device *dev,
-                            const char *attr, const char **buf)
-{
-	char color_str[WORD_LEN_MAX];
-	struct led_color color;
-	int ret = kraken_scan_word(buf, color_str);
-	if (ret) {
-		dev_warn(dev, "%s: missing color\n", attr);
-		return ret;
-	}
-	ret = led_color_from_str(&color, color_str);
-	if (ret) {
-		dev_warn(dev, "%s: invalid color %s\n", attr, color_str);
-		return ret;
-	}
-	led_msg_color_logo(msg, &color);
-	return 0;
-}
-
-static int parse_colors_ring(struct led_msg *msg, struct device *dev,
-                             const char *attr, const char **buf)
-{
-	char color_str[WORD_LEN_MAX];
-	struct led_color colors[LED_MSG_COLORS_RING];
-	size_t i;
-	int ret;
-	for (i = 0; i < ARRAY_SIZE(colors); i++) {
-		ret = kraken_scan_word(buf, color_str);
-		if (ret) {
-			dev_warn(dev, (i == 0) ? "%s: missing colors\n" :
-			         "%s: invalid colors\n", attr);
-			return ret;
-		}
-		ret = led_color_from_str(&colors[i], color_str);
-		if (ret) {
-			dev_warn(dev, "%s: invalid colors ... %s\n", attr,
-			         color_str);
-			return ret;
-		}
-	}
-	led_msg_colors_ring(msg, colors);
-	return 0;
-}
-
-static int parse_colors(struct led_msg *msg, struct device *dev,
-                        const char *attr, const char **buf)
-{
-	int ret = 0;
-	switch (led_msg_which_get(msg)) {
+	switch (led_msg_which_get(&data->batch.cycles[0])) {
+	case LED_WHICH_RING:
+		return true;
+		break;
 	case LED_WHICH_LOGO:
-		ret = parse_color_logo(msg, dev, attr, buf);
+	case LED_WHICH_SYNC:
+		return data->batch.len <= data->colors_logo;
+		break;
+	}
+	return false;
+}
+
+static bool led_data_colors_ring_is_legal(const struct led_data *data)
+{
+	switch (led_msg_which_get(&data->batch.cycles[0])) {
+	case LED_WHICH_LOGO:
+		return true;
 		break;
 	case LED_WHICH_RING:
-		ret = parse_colors_ring(msg, dev, attr, buf);
-		break;
 	case LED_WHICH_SYNC:
-		ret = parse_color_logo(msg, dev, attr, buf);
-		if (ret)
-			return ret;
-		ret = parse_colors_ring(msg, dev, attr, buf);
+		return data->batch.len <= data->colors_ring;
 		break;
 	}
-	return ret;
+	return false;
 }
 
-static int parse_batch(struct led_batch *batch, struct device *dev,
-                       const char *attr, const char **buf)
+static int led_data_check(struct led_data *data, struct device *dev)
 {
-	size_t i;
-	int ret;
-
-	if ((ret = parse_cycles(batch, dev, attr, buf)) ||
-	    (ret = parse_preset(batch, dev, attr, buf)) ||
-	    (ret = parse_moving(batch, dev, attr, buf)) ||
-	    (ret = parse_direction(batch, dev, attr, buf)) ||
-	    (ret = parse_interval(batch, dev, attr, buf)) ||
-	    (ret = parse_group_size(batch, dev, attr, buf)))
-		return ret;
-
-	for (i = 0; i < batch->len; i++) {
-		ret = parse_colors(&batch->cycles[i], dev, attr, buf);
-		if (ret)
-			return ret;
+	if (!led_batch_preset_is_legal(&data->batch)) {
+		dev_warn(dev, "illegal preset for specified %u cycles\n",
+		         data->batch.len);
+		return -EINVAL;
+	}
+	if (!led_msg_preset_is_legal(&data->batch.cycles[0])) {
+		dev_warn(dev, "illegal preset for specified leds\n");
+		return -EINVAL;
+	}
+	if (!led_msg_moving_is_legal(&data->batch.cycles[0])) {
+		dev_warn(dev, "illegal moving for specified preset\n");
+		return -EINVAL;
+	}
+	if (!led_msg_direction_is_legal(&data->batch.cycles[0])) {
+		dev_warn(dev, "illegal direction for specified preset\n");
+		return -EINVAL;
+	}
+	if (!led_msg_interval_is_legal(&data->batch.cycles[0])) {
+		dev_warn(dev, "illegal interval for specified preset\n");
+		return -EINVAL;
+	}
+	if (!led_msg_group_size_is_legal(&data->batch.cycles[0])) {
+		dev_warn(dev, "illegal group size for specified preset\n");
+		return -EINVAL;
+	}
+	if (!led_data_colors_logo_is_legal(data)) {
+		dev_warn(dev, "only %u logo colors set for %u cycles\n",
+		         data->colors_logo, data->batch.len);
+		return -EINVAL;
+	}
+	if (!led_data_colors_ring_is_legal(data)) {
+		dev_warn(dev, "only %u ring colors set for %u cycles\n",
+		         data->colors_ring, data->batch.len);
+		return -EINVAL;
 	}
 	return 0;
 }
 
-int led_data_parse(struct led_data *data, struct device *dev, const char *attr,
-                   const char *buf)
+int led_data_parse_cycles(const char **buf, struct led_data *data)
 {
-	int ret;
+	int read;
+	u8 cycles;
+	int ret = sscanf(*buf, "%hhu%n", &cycles, &read);
+	if (ret != 1 || cycles < 1 || cycles > LED_BATCH_CYCLES_SIZE)
+		return -EINVAL;
+	*buf += read;
+
+	mutex_lock(&data->mutex);
+	data->batch.len = cycles;
+	mutex_unlock(&data->mutex);
+	return 0;
+}
+
+int led_data_parse_preset(const char **buf, struct led_data *data)
+{
+	size_t i;
+	struct kraken_parse_enum words[] = {
+		{"fixed",            LED_PRESET_FIXED},
+		{"fading",           LED_PRESET_FADING},
+		{"spectrum_wave",    LED_PRESET_SPECTRUM_WAVE},
+		{"marquee",          LED_PRESET_MARQUEE},
+		{"covering_marquee", LED_PRESET_COVERING_MARQUEE},
+		{"alternating",      LED_PRESET_ALTERNATING},
+		{"breathing",        LED_PRESET_BREATHING},
+		{"pulse",            LED_PRESET_PULSE},
+		{"tai_chi",          LED_PRESET_TAI_CHI},
+		{"water_cooler",     LED_PRESET_WATER_COOLER},
+		{"load",             LED_PRESET_LOAD},
+		{NULL, 0},
+	};
+	enum led_preset preset;
+	int ret = kraken_parse_enum(buf, words, &preset);
+	if (ret)
+		return -EINVAL;
+
+	mutex_lock(&data->mutex);
+	for (i = 0; i < ARRAY_SIZE(data->batch.cycles); i++)
+		led_msg_preset(&data->batch.cycles[i], preset);
+	mutex_unlock(&data->mutex);
+	return 0;
+}
+
+int led_data_parse_moving(const char **buf, struct led_data *data)
+{
+	size_t i;
+	bool moving;
+	int ret = kraken_parse_bool(buf, &moving);
+	if (ret)
+		return -EINVAL;
+
+	mutex_lock(&data->mutex);
+	for (i = 0; i < ARRAY_SIZE(data->batch.cycles); i++)
+		led_msg_moving(&data->batch.cycles[i], moving);
+	mutex_unlock(&data->mutex);
+	return 0;
+}
+
+int led_data_parse_direction(const char **buf, struct led_data *data)
+{
+	size_t i;
+	struct kraken_parse_enum words[] = {
+		{"forward",  LED_DIRECTION_CLOCKWISE},
+		{"backward", LED_DIRECTION_COUNTERCLOCKWISE},
+		{NULL, 0},
+	};
+	enum led_direction direction;
+	int ret = kraken_parse_enum(buf, words, &direction);
+	if (ret)
+		return -EINVAL;
+
+	mutex_lock(&data->mutex);
+	for (i = 0; i < ARRAY_SIZE(data->batch.cycles); i++)
+		led_msg_direction(&data->batch.cycles[i], direction);
+	mutex_unlock(&data->mutex);
+	return 0;
+}
+
+int led_data_parse_interval(const char **buf, struct led_data *data)
+{
+	size_t i;
+	struct kraken_parse_enum words[] = {
+		{"slowest", LED_INTERVAL_SLOWEST},
+		{"slower",  LED_INTERVAL_SLOWER},
+		{"normal",  LED_INTERVAL_NORMAL},
+		{"faster",  LED_INTERVAL_FASTER},
+		{"fastest", LED_INTERVAL_FASTEST},
+		{NULL, 0},
+	};
+	enum led_interval interval;
+	int ret = kraken_parse_enum(buf, words, &interval);
+	if (ret)
+		return -EINVAL;
+
+	mutex_lock(&data->mutex);
+	for (i = 0; i < ARRAY_SIZE(data->batch.cycles); i++)
+		led_msg_interval(&data->batch.cycles[i], interval);
+	mutex_unlock(&data->mutex);
+	return 0;
+}
+
+int led_data_parse_group_size(const char **buf, struct led_data *data)
+{
+	size_t i;
+	int read;
+	u8 group_size;
+	int ret = sscanf(*buf, "%hhu%n", &group_size, &read);
+	if (ret != 1 ||
+	    group_size < LED_GROUP_SIZE_MIN || group_size > LED_GROUP_SIZE_MAX)
+		return -EINVAL;
+
+	mutex_lock(&data->mutex);
+	for (i = 0; i < ARRAY_SIZE(data->batch.cycles); i++)
+		led_msg_group_size(&data->batch.cycles[i], group_size);
+	mutex_unlock(&data->mutex);
+	return 0;
+}
+
+int led_data_parse_colors_logo(const char **buf, struct led_data *data)
+{
+	u8 i;
+	struct kraken_color color;
+
+	// first color: must be there
+	int ret = kraken_parse_color(buf, &color);
 
 	mutex_lock(&data->mutex);
 
-	ret = parse_batch(&data->batch, dev, attr, &buf);
-	if (ret)
-		goto error;
-	if (buf[0] != '\0') {
-		dev_warn(dev, "%s: unrecognized data left in buffer: `%s'\n",
-		         attr, buf);
-		ret = 1;
+	if (ret) {
+		data->colors_logo = 0;
+		ret = -EINVAL;
 		goto error;
 	}
+	led_msg_color_logo(&data->batch.cycles[0], &color);
 
-	data->update = true;
-	mutex_unlock(&data->mutex);
-	return 0;
+	// remaining colors: may not be there
+	for (i = 1; i < ARRAY_SIZE(data->batch.cycles); i++) {
+		ret = kraken_parse_color(buf, &color);
+		if (ret)
+			break;
+		led_msg_color_logo(&data->batch.cycles[i], &color);
+	}
 
+	data->colors_logo = i;
+
+	ret = 0;
 error:
-	data->update = false;
 	mutex_unlock(&data->mutex);
 	return ret;
+}
+
+static int parse_ring(const char **buf, struct kraken_color *colors)
+{
+	u8 i;
+	int ret = kraken_parse_color(buf, &colors[0]);
+	if (ret)
+		return 1;
+	for (i = 1; i < LED_MSG_COLORS_RING; i++) {
+		ret = kraken_parse_color(buf, &colors[i]);
+		if (ret)
+			return -EINVAL;
+	}
+	return 0;
+}
+
+int led_data_parse_colors_ring(const char **buf, struct led_data *data)
+{
+	u8 i;
+	struct kraken_color colors[LED_MSG_COLORS_RING];
+
+	// first set of colors
+	int ret = parse_ring(buf, colors);
+
+	mutex_lock(&data->mutex);
+
+	if (ret) {
+		data->colors_ring = 0;
+		ret = -EINVAL;
+		goto error;
+	}
+	led_msg_colors_ring(&data->batch.cycles[0], colors);
+
+	// remaining sets of colors
+	for (i = 1; i < ARRAY_SIZE(data->batch.cycles); i++) {
+		ret = parse_ring(buf, colors);
+		if (ret == 1) {
+			break;
+		} else if (ret < 0) {
+			data->colors_ring = 0;
+			ret = -EINVAL;
+			goto error;
+		}
+		led_msg_colors_ring(&data->batch.cycles[i], colors);
+	}
+
+	data->colors_ring = i;
+
+	ret = 0;
+error:
+	mutex_unlock(&data->mutex);
+	return ret;
+}
+
+int led_data_parse_which(const char **buf, struct led_data *data,
+                         struct device *dev)
+{
+	size_t i;
+	struct kraken_parse_enum words[] = {
+		{"logo", LED_WHICH_LOGO},
+		{"ring", LED_WHICH_RING},
+		{"sync", LED_WHICH_SYNC},
+		{NULL, 0},
+	};
+	enum led_which which;
+	int ret = kraken_parse_enum(buf, words, &which);
+	if (ret)
+		return -EINVAL;
+
+	mutex_lock(&data->mutex);
+
+	for (i = 0; i < ARRAY_SIZE(data->batch.cycles); i++)
+		led_msg_which(&data->batch.cycles[i], which);
+
+	ret = led_data_check(data, dev);
+	if (ret)
+		goto error;
+	data->update = true;
+
+	ret = 0;
+error:
+	mutex_unlock(&data->mutex);
+	return ret;
+}
+
+void led_data_init(struct led_data *data)
+{
+	led_batch_init(&data->batch);
+	// this will never be confused for a real batch
+	data->prev.len = 0;
+	data->update = false;
+	data->colors_logo = 0;
+	data->colors_ring = 0;
+
+	mutex_init(&data->mutex);
 }
 
 int kraken_x62_update_led(struct kraken_data *kdata, struct led_data *data)

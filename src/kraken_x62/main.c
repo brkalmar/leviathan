@@ -27,9 +27,7 @@ struct kraken_driver_data {
 	struct percent_data percent_fan;
 	struct percent_data percent_pump;
 
-	struct led_data led_logo;
-	struct led_data leds_ring;
-	struct led_data leds_sync;
+	struct led_data led;
 };
 
 size_t kraken_driver_data_size(void)
@@ -42,9 +40,7 @@ static void kraken_driver_data_init(struct kraken_driver_data *data)
 	status_data_init(&data->status);
 	percent_data_init(&data->percent_fan, PERCENT_MSG_WHICH_FAN);
 	percent_data_init(&data->percent_pump, PERCENT_MSG_WHICH_PUMP);
-	led_data_init(&data->led_logo, LED_WHICH_LOGO);
-	led_data_init(&data->leds_ring, LED_WHICH_RING);
-	led_data_init(&data->leds_sync, LED_WHICH_SYNC);
+	led_data_init(&data->led);
 }
 
 int kraken_driver_update(struct kraken_data *kdata)
@@ -54,9 +50,7 @@ int kraken_driver_update(struct kraken_data *kdata)
 	if ((ret = kraken_x62_update_status(kdata, &data->status)) ||
 	    (ret = kraken_x62_update_percent(kdata, &data->percent_fan)) ||
 	    (ret = kraken_x62_update_percent(kdata, &data->percent_pump)) ||
-	    (ret = kraken_x62_update_led(kdata, &data->led_logo)) ||
-	    (ret = kraken_x62_update_led(kdata, &data->leds_ring)) ||
-	    (ret = kraken_x62_update_led(kdata, &data->leds_sync)))
+	    (ret = kraken_x62_update_led(kdata, &data->led)))
 		return ret;
 	return 0;
 }
@@ -129,53 +123,11 @@ static ssize_t unknown_3_show(struct device *dev, struct device_attribute *attr,
 
 static DEVICE_ATTR_RO(unknown_3);
 
-static ssize_t attr_led_store(struct led_data *data, struct device *dev,
-                              struct device_attribute *attr, const char *buf,
-                              size_t count)
-{
-	int ret = led_data_parse(data, dev, attr->attr.name, buf);
-	if (ret)
-		return -EINVAL;
-	return count;
-}
-
-static ssize_t led_logo_store(struct device *dev, struct device_attribute *attr,
-                              const char *buf, size_t count)
-{
-	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
-	return attr_led_store(&kdata->data->led_logo, dev, attr, buf, count);
-}
-
-static DEVICE_ATTR_WO(led_logo);
-
-static ssize_t leds_ring_store(struct device *dev,
-                               struct device_attribute *attr, const char *buf,
-                               size_t count)
-{
-	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
-	return attr_led_store(&kdata->data->leds_ring, dev, attr, buf, count);
-}
-
-static DEVICE_ATTR_WO(leds_ring);
-
-static ssize_t leds_sync_store(struct device *dev,
-                               struct device_attribute *attr, const char *buf,
-                               size_t count)
-{
-	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
-	return attr_led_store(&kdata->data->leds_sync, dev, attr, buf, count);
-}
-
-static DEVICE_ATTR_WO(leds_sync);
-
 static struct attribute *kraken_x62_group_attrs[] = {
 	&dev_attr_serial_no.attr,
 	&dev_attr_unknown_1.attr,
 	&dev_attr_unknown_2.attr,
 	&dev_attr_unknown_3.attr,
-	&dev_attr_led_logo.attr,
-	&dev_attr_leds_ring.attr,
-	&dev_attr_leds_sync.attr,
 	NULL,
 };
 
@@ -183,8 +135,139 @@ static struct attribute_group kraken_x62_group = {
 	.attrs = kraken_x62_group_attrs,
 };
 
+static ssize_t cycles_store(struct device *dev, struct device_attribute *attr,
+                            const char *buf, size_t count)
+{
+	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
+	int ret = led_data_parse_cycles(&buf, &kdata->data->led);
+	if (ret)
+		return -EINVAL;
+	return count;
+}
+
+static DEVICE_ATTR_WO(cycles);
+
+static ssize_t preset_store(struct device *dev, struct device_attribute *attr,
+                            const char *buf, size_t count)
+{
+	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
+	int ret = led_data_parse_preset(&buf, &kdata->data->led);
+	if (ret)
+		return -EINVAL;
+	return count;
+}
+
+static DEVICE_ATTR_WO(preset);
+
+static ssize_t moving_store(struct device *dev, struct device_attribute *attr,
+                            const char *buf, size_t count)
+{
+	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
+	int ret = led_data_parse_moving(&buf, &kdata->data->led);
+	if (ret)
+		return -EINVAL;
+	return count;
+}
+
+static DEVICE_ATTR_WO(moving);
+
+static ssize_t direction_store(struct device *dev,
+                               struct device_attribute *attr, const char *buf,
+                               size_t count)
+{
+	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
+	int ret = led_data_parse_direction(&buf, &kdata->data->led);
+	if (ret)
+		return -EINVAL;
+	return count;
+}
+
+static DEVICE_ATTR_WO(direction);
+
+static ssize_t interval_store(struct device *dev, struct device_attribute *attr,
+                              const char *buf, size_t count)
+{
+	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
+	int ret = led_data_parse_interval(&buf, &kdata->data->led);
+	if (ret)
+		return -EINVAL;
+	return count;
+}
+
+static DEVICE_ATTR_WO(interval);
+
+static ssize_t group_size_store(struct device *dev,
+                                struct device_attribute *attr, const char *buf,
+                                size_t count)
+{
+	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
+	int ret = led_data_parse_group_size(&buf, &kdata->data->led);
+	if (ret)
+		return -EINVAL;
+	return count;
+}
+
+static DEVICE_ATTR_WO(group_size);
+
+static ssize_t colors_logo_store(struct device *dev,
+                                 struct device_attribute *attr, const char *buf,
+                                 size_t count)
+{
+	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
+	int ret = led_data_parse_colors_logo(&buf, &kdata->data->led);
+	if (ret)
+		return -EINVAL;
+	return count;
+}
+
+static DEVICE_ATTR_WO(colors_logo);
+
+static ssize_t colors_ring_store(struct device *dev,
+                                 struct device_attribute *attr, const char *buf,
+                                 size_t count)
+{
+	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
+	int ret = led_data_parse_colors_ring(&buf, &kdata->data->led);
+	if (ret)
+		return -EINVAL;
+	return count;
+}
+
+static DEVICE_ATTR_WO(colors_ring);
+
+static ssize_t which_store(struct device *dev, struct device_attribute *attr,
+                           const char *buf, size_t count)
+{
+	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
+	int ret = led_data_parse_which(&buf, &kdata->data->led, dev);
+	if (ret)
+		return -EINVAL;
+	return count;
+}
+
+static DEVICE_ATTR_WO(which);
+
+static struct attribute *kraken_x62_group_led_attrs[] = {
+	&dev_attr_cycles.attr,
+	&dev_attr_preset.attr,
+	&dev_attr_moving.attr,
+	&dev_attr_direction.attr,
+	&dev_attr_interval.attr,
+	&dev_attr_group_size.attr,
+	&dev_attr_colors_logo.attr,
+	&dev_attr_colors_ring.attr,
+	&dev_attr_which.attr,
+	NULL,
+};
+
+static struct attribute_group kraken_x62_group_led = {
+	.attrs = kraken_x62_group_led_attrs,
+	.name = "led",
+};
+
 const struct attribute_group *kraken_driver_groups[] = {
 	&kraken_x62_group,
+	&kraken_x62_group_led,
 	NULL,
 };
 

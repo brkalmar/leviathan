@@ -3,10 +3,23 @@
 
 #include <linux/kernel.h>
 
-#define WORD_LEN_MAX 64
+struct kraken_parse_enum {
+	const char *word;
+	const u64 value;
+};
 
-int kraken_scan_word(const char **buf, char *word);
+int kraken_parse_enum(const char **buf, const struct kraken_parse_enum *words,
+                      void *value);
 
+struct kraken_color {
+	u8 red;
+	u8 green;
+	u8 blue;
+};
+
+int kraken_parse_color(const char **buf, struct kraken_color *value);
+
+int kraken_parse_bool(const char **buf, bool *value);
 int kraken_parse_percent(const char **buf, u32 *value);
 
 #endif  /* LEVIATHAN_UTIL_H_INCLUDED */
