@@ -48,6 +48,6 @@ int led_data_parse_which(const char **buf, struct led_data *data,
 
 void led_data_init(struct led_data *data);
 
-int kraken_x62_update_led(struct kraken_data *kdata, struct led_data *data);
+int led_data_update(struct kraken_data *kdata, struct led_data *data);
 
 #endif  /* LEVIATHAN_X62_LED_H_INCLUDED */

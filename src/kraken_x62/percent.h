@@ -30,7 +30,6 @@ struct percent_data {
 void percent_data_init(struct percent_data *data, enum percent_msg_which which);
 int percent_data_set(struct percent_data *data, u8 percent);
 
-int kraken_x62_update_percent(struct kraken_data *kdata,
-                              struct percent_data *data);
+int percent_data_update(struct kraken_data *kdata, struct percent_data *data);
 
 #endif  /* LEVIATHAN_X62_PERCENT_H_INCLUDED */

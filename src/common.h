@@ -12,24 +12,24 @@
 /**
  * The driver's name.
  */
-extern const char *kraken_driver_name;
+extern const char *driver_name;
 
 /**
  * Driver-specific data.  This struct is defined by the driver.
  */
-struct kraken_driver_data;
+struct driver_data;
 
 /**
- * Return size of struct `kraken_driver_data`.
+ * Return size of struct `driver_data`.
  */
-extern size_t kraken_driver_data_size(void);
+extern size_t driver_data_size(void);
 
 /**
  * The custom data stored in the interface, retrievable by usb_get_intfdata().
  */
 struct kraken_data {
 	// Driver-specific data.
-	struct kraken_driver_data *data;
+	struct driver_data *data;
 
 	// Handle to the usb device.
 	struct usb_device *udev;
@@ -58,55 +58,55 @@ struct kraken_data {
 /**
  * The driver's update function, called every update cycle.
  */
-extern int kraken_driver_update(struct kraken_data *kdata);
+extern int driver_update(struct kraken_data *kdata);
 
 /**
  * The driver's liquid temperature attribute [°C].
  */
-extern u32 kraken_driver_get_temp(struct kraken_data *kdata);
+extern u32 driver_get_temp(struct kraken_data *kdata);
 
 /**
  * The driver's read-only fan attribute [RPM].
  */
-extern u32 kraken_driver_get_fan_rpm(struct kraken_data *kdata);
+extern u32 driver_get_fan_rpm(struct kraken_data *kdata);
 
 /**
  * The driver's read-only pump attribute [RPM].
  */
-extern u32 kraken_driver_get_pump_rpm(struct kraken_data *kdata);
+extern u32 driver_get_pump_rpm(struct kraken_data *kdata);
 
 /**
  * The driver's write-only fan attribute [%].
  *
  * Return: 0 on success, -EINVAL if the value is invalid.
  */
-extern int kraken_driver_set_fan_percent(struct kraken_data *kdata, u32 value);
+extern int driver_set_fan_percent(struct kraken_data *kdata, u32 value);
 
 /**
  * The driver's write-only pump attribute [%].
  *
  * Return: 0 on success, -EINVAL if the value is invalid.
  */
-extern int kraken_driver_set_pump_percent(struct kraken_data *kdata, u32 value);
+extern int driver_set_pump_percent(struct kraken_data *kdata, u32 value);
 
 /**
  * Driver-specific device attribute file groups.  Created in kraken_probe() and
  * removed in kraken_disconnect().
  */
-extern const struct attribute_group *kraken_driver_groups[];
+extern const struct attribute_group *driver_groups[];
 
 /**
  * Driver-specific probe called from kraken_probe().  Driver-specific data is
  * allocated before calling this.
  */
-extern int kraken_driver_probe(struct usb_interface *interface,
-                               const struct usb_device_id *id);
+extern int driver_probe(struct usb_interface *interface,
+                        const struct usb_device_id *id);
 
 /**
  * Driver-specific disconnect called from kraken_disconnect().  Driver-specific
  * data is freed after calling this.
  */
-extern void kraken_driver_disconnect(struct usb_interface *interface);
+extern void driver_disconnect(struct usb_interface *interface);
 
 /**
  * Get DMA-capable buffer for USB messages, shared for all messages under a

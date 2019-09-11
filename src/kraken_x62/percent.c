@@ -62,8 +62,7 @@ error:
 	return ret;
 }
 
-int kraken_x62_update_percent(struct kraken_data *kdata,
-                              struct percent_data *data)
+int percent_data_update(struct kraken_data *kdata, struct percent_data *data)
 {
 	struct device *dev = kdata->dev;
 	struct percent_msg *usb_msg;

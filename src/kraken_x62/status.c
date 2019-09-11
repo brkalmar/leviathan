@@ -76,8 +76,7 @@ u16 status_data_unknown_3(struct status_data *data)
 	return be16_to_cpu(unknown_3_be);
 }
 
-int kraken_x62_update_status(struct kraken_data *kdata,
-                             struct status_data *data)
+int status_data_update(struct kraken_data *kdata, struct status_data *data)
 {
 	struct device *dev = kdata->dev;
 	u8 *usb_msg;

@@ -15,11 +15,11 @@
 
 #define DRIVER_NAME "kraken_x62"
 
-const char *kraken_driver_name = DRIVER_NAME;
+const char *driver_name = DRIVER_NAME;
 
 #define DATA_SERIAL_NUMBER_SIZE ((size_t) 65)
 
-struct kraken_driver_data {
+struct driver_data {
 	char serial_number[DATA_SERIAL_NUMBER_SIZE];
 
 	struct status_data status;
@@ -30,12 +30,12 @@ struct kraken_driver_data {
 	struct led_data led;
 };
 
-size_t kraken_driver_data_size(void)
+size_t driver_data_size(void)
 {
-	return sizeof(struct kraken_driver_data);
+	return sizeof(struct driver_data);
 }
 
-static void kraken_driver_data_init(struct kraken_driver_data *data)
+static void driver_data_init(struct driver_data *data)
 {
 	status_data_init(&data->status);
 	percent_data_init(&data->percent_fan, PERCENT_MSG_WHICH_FAN);
@@ -43,41 +43,41 @@ static void kraken_driver_data_init(struct kraken_driver_data *data)
 	led_data_init(&data->led);
 }
 
-int kraken_driver_update(struct kraken_data *kdata)
+int driver_update(struct kraken_data *kdata)
 {
 	int ret;
-	struct kraken_driver_data *data = kdata->data;
-	if ((ret = kraken_x62_update_status(kdata, &data->status)) ||
-	    (ret = kraken_x62_update_percent(kdata, &data->percent_fan)) ||
-	    (ret = kraken_x62_update_percent(kdata, &data->percent_pump)) ||
-	    (ret = kraken_x62_update_led(kdata, &data->led)))
+	struct driver_data *data = kdata->data;
+	if ((ret = status_data_update(kdata, &data->status)) ||
+	    (ret = percent_data_update(kdata, &data->percent_fan)) ||
+	    (ret = percent_data_update(kdata, &data->percent_pump)) ||
+	    (ret = led_data_update(kdata, &data->led)))
 		return ret;
 	return 0;
 }
 
-u32 kraken_driver_get_temp(struct kraken_data *kdata)
+u32 driver_get_temp(struct kraken_data *kdata)
 {
 	return status_data_temp_liquid(&kdata->data->status);
 }
 
-u32 kraken_driver_get_fan_rpm(struct kraken_data *kdata)
+u32 driver_get_fan_rpm(struct kraken_data *kdata)
 {
 	return status_data_fan_rpm(&kdata->data->status);
 }
 
-u32 kraken_driver_get_pump_rpm(struct kraken_data *kdata)
+u32 driver_get_pump_rpm(struct kraken_data *kdata)
 {
 	return status_data_pump_rpm(&kdata->data->status);
 }
 
-int kraken_driver_set_fan_percent(struct kraken_data *kdata, u32 value)
+int driver_set_fan_percent(struct kraken_data *kdata, u32 value)
 {
 	if (value > U8_MAX)
 		return -EINVAL;
 	return percent_data_set(&kdata->data->percent_fan, value);
 }
 
-int kraken_driver_set_pump_percent(struct kraken_data *kdata, u32 value)
+int driver_set_pump_percent(struct kraken_data *kdata, u32 value)
 {
 	if (value > U8_MAX)
 		return -EINVAL;
@@ -123,7 +123,7 @@ static ssize_t unknown_3_show(struct device *dev, struct device_attribute *attr,
 
 static DEVICE_ATTR_RO(unknown_3);
 
-static struct attribute *kraken_x62_group_attrs[] = {
+static struct attribute *x62_group_attrs[] = {
 	&dev_attr_serial_no.attr,
 	&dev_attr_unknown_1.attr,
 	&dev_attr_unknown_2.attr,
@@ -131,8 +131,8 @@ static struct attribute *kraken_x62_group_attrs[] = {
 	NULL,
 };
 
-static struct attribute_group kraken_x62_group = {
-	.attrs = kraken_x62_group_attrs,
+static struct attribute_group x62_group = {
+	.attrs = x62_group_attrs,
 };
 
 static ssize_t cycles_store(struct device *dev, struct device_attribute *attr,
@@ -247,7 +247,7 @@ static ssize_t which_store(struct device *dev, struct device_attribute *attr,
 
 static DEVICE_ATTR_WO(which);
 
-static struct attribute *kraken_x62_group_led_attrs[] = {
+static struct attribute *x62_group_led_attrs[] = {
 	&dev_attr_cycles.attr,
 	&dev_attr_preset.attr,
 	&dev_attr_moving.attr,
@@ -260,19 +260,18 @@ static struct attribute *kraken_x62_group_led_attrs[] = {
 	NULL,
 };
 
-static struct attribute_group kraken_x62_group_led = {
-	.attrs = kraken_x62_group_led_attrs,
+static struct attribute_group x62_group_led = {
+	.attrs = x62_group_led_attrs,
 	.name = "led",
 };
 
-const struct attribute_group *kraken_driver_groups[] = {
-	&kraken_x62_group,
-	&kraken_x62_group_led,
+const struct attribute_group *driver_groups[] = {
+	&x62_group,
+	&x62_group_led,
 	NULL,
 };
 
-static int kraken_x62_initialize(struct kraken_data *kdata,
-                                 char serial_number[])
+static int x62_initialize(struct kraken_data *kdata, char *serial_number)
 {
 	struct device *dev = kdata->dev;
 	u8 len;
@@ -321,17 +320,17 @@ static int kraken_x62_initialize(struct kraken_data *kdata,
 	return 0;
 }
 
-int kraken_driver_probe(struct usb_interface *interface,
-                        const struct usb_device_id *id)
+int driver_probe(struct usb_interface *interface,
+                 const struct usb_device_id *id)
 {
 	struct kraken_data *kdata = usb_get_intfdata(interface);
-	struct kraken_driver_data *data = kdata->data;
+	struct driver_data *data = kdata->data;
 	struct device *dev = kdata->dev;
 	int ret;
 
-	kraken_driver_data_init(data);
+	driver_data_init(data);
 
-	ret = kraken_x62_initialize(kdata, data->serial_number);
+	ret = x62_initialize(kdata, data->serial_number);
 	if (ret) {
 		dev_err(dev, "failed to initialize: %d\n", ret);
 		return ret;
@@ -340,25 +339,25 @@ int kraken_driver_probe(struct usb_interface *interface,
 	return 0;
 }
 
-void kraken_driver_disconnect(struct usb_interface *interface)
+void driver_disconnect(struct usb_interface *interface)
 {
 }
 
-static const struct usb_device_id kraken_x62_id_table[] = {
+static const struct usb_device_id x62_id_table[] = {
 	{ USB_DEVICE(0x1e71, 0x170e) },
 	{ },
 };
 
-MODULE_DEVICE_TABLE(usb, kraken_x62_id_table);
+MODULE_DEVICE_TABLE(usb, x62_id_table);
 
-static struct usb_driver kraken_x62_driver = {
+static struct usb_driver x62_driver = {
 	.name       = DRIVER_NAME,
 	.probe      = kraken_probe,
 	.disconnect = kraken_disconnect,
-	.id_table   = kraken_x62_id_table,
+	.id_table   = x62_id_table,
 };
 
-module_usb_driver(kraken_x62_driver);
+module_usb_driver(x62_driver);
 
 MODULE_DESCRIPTION("driver for 1e71:170e devices (NZXT Kraken X*2)");
 MODULE_LICENSE("GPL");

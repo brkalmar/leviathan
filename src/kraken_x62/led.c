@@ -601,7 +601,7 @@ void led_data_init(struct led_data *data)
 	mutex_init(&data->mutex);
 }
 
-int kraken_x62_update_led(struct kraken_data *kdata, struct led_data *data)
+int led_data_update(struct kraken_data *kdata, struct led_data *data)
 {
 	struct device *dev = kdata->dev;
 	struct led_batch *usb_batch;

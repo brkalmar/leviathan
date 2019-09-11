@@ -16,7 +16,7 @@ static void kraken_update_work(struct work_struct *update_work)
 	struct kraken_data *kdata
 		= container_of(update_work, struct kraken_data, update_work);
 	struct device *dev = kdata->dev;
-	int ret = kraken_driver_update(kdata);
+	int ret = driver_update(kdata);
 
 	// tell any waiting update syncs that the update has finished
 	kdata->update_sync_condition = true;
@@ -99,7 +99,7 @@ static ssize_t temp_show(struct device *dev,  struct device_attribute *attr,
                          char *buf)
 {
 	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
-	return scnprintf(buf, PAGE_SIZE, "%u\n", kraken_driver_get_temp(kdata));
+	return scnprintf(buf, PAGE_SIZE, "%u\n", driver_get_temp(kdata));
 }
 
 static DEVICE_ATTR_RO(temp);
@@ -108,8 +108,7 @@ static ssize_t fan_rpm_show(struct device *dev,  struct device_attribute *attr,
                             char *buf)
 {
 	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
-	return scnprintf(buf, PAGE_SIZE, "%u\n",
-	                 kraken_driver_get_fan_rpm(kdata));
+	return scnprintf(buf, PAGE_SIZE, "%u\n", driver_get_fan_rpm(kdata));
 }
 
 static DEVICE_ATTR_RO(fan_rpm);
@@ -118,8 +117,7 @@ static ssize_t pump_rpm_show(struct device *dev,  struct device_attribute *attr,
                             char *buf)
 {
 	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
-	return scnprintf(buf, PAGE_SIZE, "%u\n",
-	                 kraken_driver_get_pump_rpm(kdata));
+	return scnprintf(buf, PAGE_SIZE, "%u\n", driver_get_pump_rpm(kdata));
 }
 
 static DEVICE_ATTR_RO(pump_rpm);
@@ -133,7 +131,7 @@ static ssize_t fan_percent_store(struct device *dev,
 	int res = kraken_parse_percent(&buf, &value);
 	if (res)
 		return res;
-	res = kraken_driver_set_fan_percent(kdata, value);
+	res = driver_set_fan_percent(kdata, value);
 	if (res)
 		return res;
 	return count;
@@ -150,7 +148,7 @@ static ssize_t pump_percent_store(
 	int res = kraken_parse_percent(&buf, &value);
 	if (res)
 		return res;
-	res = kraken_driver_set_pump_percent(kdata, value);
+	res = driver_set_pump_percent(kdata, value);
 	if (res)
 		return res;
 	return count;
@@ -158,7 +156,7 @@ static ssize_t pump_percent_store(
 
 static DEVICE_ATTR_WO(pump_percent);
 
-static struct attribute *kraken_group_attrs[] = {
+static struct attribute *common_group_attrs[] = {
 	&dev_attr_update.attr,
 	&dev_attr_update_sync.attr,
 	&dev_attr_temp.attr,
@@ -169,12 +167,12 @@ static struct attribute *kraken_group_attrs[] = {
 	NULL,
 };
 
-static struct attribute_group kraken_group = {
-	.attrs = kraken_group_attrs,
+static struct attribute_group common_group = {
+	.attrs = common_group_attrs,
 };
 
-static const struct attribute_group *kraken_groups[] = {
-	&kraken_group,
+static const struct attribute_group *common_groups[] = {
+	&common_group,
 	NULL,
 };
 
@@ -182,24 +180,24 @@ static int kraken_create_groups(struct usb_interface *interface)
 {
 	int ret;
 
-	ret = device_add_groups(&interface->dev, kraken_groups);
+	ret = device_add_groups(&interface->dev, common_groups);
 	if (ret)
 		goto error_groups;
-	ret = device_add_groups(&interface->dev, kraken_driver_groups);
+	ret = device_add_groups(&interface->dev, driver_groups);
 	if (ret)
 		goto error_driver_groups;
 
 	return 0;
 error_driver_groups:
-	device_remove_groups(&interface->dev, kraken_groups);
+	device_remove_groups(&interface->dev, common_groups);
 error_groups:
 	return ret;
 }
 
 static void kraken_remove_groups(struct usb_interface *interface)
 {
-	device_remove_groups(&interface->dev, kraken_driver_groups);
-	device_remove_groups(&interface->dev, kraken_groups);
+	device_remove_groups(&interface->dev, driver_groups);
+	device_remove_groups(&interface->dev, common_groups);
 }
 
 int kraken_usb_data(struct kraken_data *kdata, u8 **data, size_t size)
@@ -229,7 +227,7 @@ int kraken_probe(struct usb_interface *interface,
 	struct kraken_data *kdata = kmalloc(sizeof(*kdata), GFP_KERNEL);
 	if (kdata == NULL)
 		goto error_kdata;
-	kdata->data = kmalloc(kraken_driver_data_size(), GFP_KERNEL);
+	kdata->data = kmalloc(driver_data_size(), GFP_KERNEL);
 	if (kdata->data == NULL)
 		goto error_data;
 	kdata->usb_data = NULL;
@@ -242,15 +240,14 @@ int kraken_probe(struct usb_interface *interface,
 	kdata->dev = dev;
 	usb_set_intfdata(interface, kdata);
 
-	ret = kraken_driver_probe(interface, id);
+	ret = driver_probe(interface, id);
 	if (ret)
 		goto error_driver_probe;
 
 	init_waitqueue_head(&kdata->update_sync_waitqueue);
 	kdata->update_sync_condition = false;
 
-	snprintf(workqueue_name, sizeof(workqueue_name),
-	         "%s_up", kraken_driver_name);
+	snprintf(workqueue_name, sizeof(workqueue_name), "%s_up", driver_name);
 	kdata->update_workqueue = create_singlethread_workqueue(workqueue_name);
 	INIT_WORK(&kdata->update_work, &kraken_update_work);
 	kdata->update = update_initial;
@@ -283,7 +280,7 @@ error_queue_work:
 	destroy_workqueue(kdata->update_workqueue);
 	kdata->update_sync_condition = true;
 	wake_up_all(&kdata->update_sync_waitqueue);
-	kraken_driver_disconnect(interface);
+	driver_disconnect(interface);
 error_driver_probe:
 	usb_set_intfdata(interface, NULL);
 	usb_put_dev(kdata->udev);
@@ -308,7 +305,7 @@ void kraken_disconnect(struct usb_interface *interface)
 	kdata->update_sync_condition = true;
 	wake_up_all(&kdata->update_sync_waitqueue);
 
-	kraken_driver_disconnect(interface);
+	driver_disconnect(interface);
 
 	usb_set_intfdata(interface, NULL);
 	usb_put_dev(kdata->udev);

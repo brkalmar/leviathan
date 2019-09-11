@@ -10,9 +10,9 @@
 
 #define DRIVER_NAME "kraken_x61"
 
-const char *kraken_driver_name = DRIVER_NAME;
+const char *driver_name = DRIVER_NAME;
 
-struct kraken_driver_data {
+struct driver_data {
 	// TODO: it would be nice to protect these messages from data races by
 	// mutexes, like in kraken_x62.  They shouldn't happen frequently, and
 	// it's not exactly a huge problem if they happen, but lack of data
@@ -24,19 +24,18 @@ struct kraken_driver_data {
 	u8 status_message[32];
 };
 
-size_t kraken_driver_data_size(void)
+size_t driver_data_size(void)
 {
-	return sizeof(struct kraken_driver_data);
+	return sizeof(struct driver_data);
 }
 
-static int kraken_start_transaction(struct kraken_data *kdata)
+static int x61_start_transaction(struct kraken_data *kdata)
 {
 	return usb_control_msg(kdata->udev, usb_sndctrlpipe(kdata->udev, 0), 2,
 	                       0x40, 0x0001, 0, NULL, 0, 1000);
 }
 
-static int kraken_send_message(struct kraken_data *kdata, u8 *message,
-                               int length)
+static int x61_message_send(struct kraken_data *kdata, u8 *message, int length)
 {
 	int sent;
 	u8 *data;
@@ -53,8 +52,8 @@ static int kraken_send_message(struct kraken_data *kdata, u8 *message,
 	return 0;
 }
 
-static int kraken_receive_message(struct kraken_data *kdata, u8 *message,
-                                  int expected_length)
+static int x61_message_recv(struct kraken_data *kdata, u8 *message,
+                            int expected_length)
 {
 	int received;
 	u8 *data;
@@ -71,47 +70,44 @@ static int kraken_receive_message(struct kraken_data *kdata, u8 *message,
 	return 0;
 }
 
-int kraken_driver_update(struct kraken_data *kdata)
+int driver_update(struct kraken_data *kdata)
 {
 	int ret = 0;
-	struct kraken_driver_data *data = kdata->data;
+	struct driver_data *data = kdata->data;
 	if (data->send_color) {
-		if ((ret = kraken_start_transaction(kdata)) ||
-		    (ret = kraken_send_message(
-			    kdata, data->color_message, 19)) ||
-		    (ret = kraken_receive_message(
-			    kdata, data->status_message, 32)))
+		if ((ret = x61_start_transaction(kdata)) ||
+		    (ret = x61_message_send(kdata, data->color_message, 19)) ||
+		    (ret = x61_message_recv(kdata, data->status_message, 32)))
 			;
 	} else {
-		if ((ret = kraken_start_transaction(kdata)) ||
-		    (ret = kraken_send_message(kdata, data->pump_message, 2)) ||
-		    (ret = kraken_send_message(kdata, data->fan_message, 2)) ||
-		    (ret = kraken_receive_message(
-			    kdata, data->status_message, 32)))
+		if ((ret = x61_start_transaction(kdata)) ||
+		    (ret = x61_message_send(kdata, data->pump_message, 2)) ||
+		    (ret = x61_message_send(kdata, data->fan_message, 2)) ||
+		    (ret = x61_message_recv(kdata, data->status_message, 32)))
 			;
 	}
 	data->send_color = false;
 	return ret;
 }
 
-u32 kraken_driver_get_temp(struct kraken_data *kdata)
+u32 driver_get_temp(struct kraken_data *kdata)
 {
 	return kdata->data->status_message[10];
 }
 
-u32 kraken_driver_get_fan_rpm(struct kraken_data *kdata)
+u32 driver_get_fan_rpm(struct kraken_data *kdata)
 {
-	struct kraken_driver_data *data = kdata->data;
+	struct driver_data *data = kdata->data;
 	return 256 * data->status_message[0] + data->status_message[1];
 }
 
-u32 kraken_driver_get_pump_rpm(struct kraken_data *kdata)
+u32 driver_get_pump_rpm(struct kraken_data *kdata)
 {
-	struct kraken_driver_data *data = kdata->data;
+	struct driver_data *data = kdata->data;
 	return 256 * data->status_message[8] + data->status_message[9];
 }
 
-int kraken_driver_set_fan_percent(struct kraken_data *kdata, u32 value)
+int driver_set_fan_percent(struct kraken_data *kdata, u32 value)
 {
 	if (value < 30 || value > 100)
 		return -EINVAL;
@@ -119,7 +115,7 @@ int kraken_driver_set_fan_percent(struct kraken_data *kdata, u32 value)
 	return 0;
 }
 
-int kraken_driver_set_pump_percent(struct kraken_data *kdata, u32 value)
+int driver_set_pump_percent(struct kraken_data *kdata, u32 value)
 {
 	if (value < 30 || value > 100)
 		return -EINVAL;
@@ -132,7 +128,7 @@ static ssize_t color_main_store(struct device *dev,
                                 const char *buf, size_t count)
 {
 	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
-	struct kraken_driver_data *data = kdata->data;
+	struct driver_data *data = kdata->data;
 	struct kraken_color color;
 	int ret = kraken_parse_color(&buf, &color);
 	if (ret)
@@ -150,7 +146,7 @@ static ssize_t color_alternate_store(struct device *dev,
                                      const char *buf, size_t count)
 {
 	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
-	struct kraken_driver_data *data = kdata->data;
+	struct driver_data *data = kdata->data;
 	struct kraken_color color;
 	int ret = kraken_parse_color(&buf, &color);
 	if (ret)
@@ -167,7 +163,7 @@ static ssize_t interval_store(struct device *dev, struct device_attribute *attr,
                               const char *buf, size_t count)
 {
 	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
-	struct kraken_driver_data *data = kdata->data;
+	struct driver_data *data = kdata->data;
 	int read;
 	u8 interval;
 	int ret = sscanf(buf, "%hhu%n", &interval, &read);
@@ -185,7 +181,7 @@ static ssize_t mode_store(struct device *dev, struct device_attribute *attr,
                           const char *buf, size_t count)
 {
 	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
-	struct kraken_driver_data *data = kdata->data;
+	struct driver_data *data = kdata->data;
 	struct kraken_parse_enum words[] = {
 		{"normal",      1 << 16 | 0 << 8 | 0 << 0},
 		{"alternating", 1 << 16 | 1 << 8 | 0 << 0},
@@ -206,7 +202,7 @@ static ssize_t mode_store(struct device *dev, struct device_attribute *attr,
 
 static DEVICE_ATTR_WO(mode);
 
-static struct attribute *kraken_x61_group_led_attrs[] = {
+static struct attribute *x61_group_led_attrs[] = {
 	&dev_attr_color_main.attr,
 	&dev_attr_color_alternate.attr,
 	&dev_attr_interval.attr,
@@ -214,21 +210,21 @@ static struct attribute *kraken_x61_group_led_attrs[] = {
 	NULL,
 };
 
-static struct attribute_group kraken_x61_group_led = {
-	.attrs = kraken_x61_group_led_attrs,
+static struct attribute_group x61_group_led = {
+	.attrs = x61_group_led_attrs,
 	.name = "led",
 };
 
-const struct attribute_group *kraken_driver_groups[] = {
-	&kraken_x61_group_led,
+const struct attribute_group *driver_groups[] = {
+	&x61_group_led,
 	NULL,
 };
 
-int kraken_driver_probe(struct usb_interface *interface,
-                        const struct usb_device_id *id)
+int driver_probe(struct usb_interface *interface,
+                 const struct usb_device_id *id)
 {
 	struct kraken_data *kdata = usb_get_intfdata(interface);
-	struct kraken_driver_data *data = kdata->data;
+	struct driver_data *data = kdata->data;
 	int ret;
 
 	data->color_message[0]  = 0x10;
@@ -273,25 +269,25 @@ int kraken_driver_probe(struct usb_interface *interface,
 	return 0;
 }
 
-void kraken_driver_disconnect(struct usb_interface *interface)
+void driver_disconnect(struct usb_interface *interface)
 {
 }
 
-static const struct usb_device_id kraken_x61_id_table[] = {
+static const struct usb_device_id x61_id_table[] = {
 	{ USB_DEVICE(0x2433, 0xb200) },
 	{ },
 };
 
-MODULE_DEVICE_TABLE(usb, kraken_x61_id_table);
+MODULE_DEVICE_TABLE(usb, x61_id_table);
 
-static struct usb_driver kraken_x61_driver = {
+static struct usb_driver x61_driver = {
 	.name       = DRIVER_NAME,
 	.probe      = kraken_probe,
 	.disconnect = kraken_disconnect,
-	.id_table   = kraken_x61_id_table,
+	.id_table   = x61_id_table,
 };
 
-module_usb_driver(kraken_x61_driver);
+module_usb_driver(x61_driver);
 
 MODULE_DESCRIPTION("driver for 2433:b200 devices (NZXT Kraken X*1)");
 MODULE_LICENSE("GPL");
