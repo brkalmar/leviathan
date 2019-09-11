@@ -2,6 +2,7 @@
  */
 
 #include "../common.h"
+#include "../util.h"
 
 #include <linux/module.h>
 #include <linux/slab.h>
@@ -44,7 +45,7 @@ static int kraken_send_message(struct kraken_data *kdata, u8 *message,
 		return ret;
 	memcpy(data, message, length);
 	ret = usb_bulk_msg(kdata->udev, usb_sndbulkpipe(kdata->udev, 2),
-	                      data, length, &sent, 3000);
+	                   data, length, &sent, 3000);
 	if (ret)
 		return ret;
 	if (sent != length)
@@ -61,7 +62,7 @@ static int kraken_receive_message(struct kraken_data *kdata, u8 *message,
 	if (ret)
 		return ret;
 	ret = usb_bulk_msg(kdata->udev, usb_rcvbulkpipe(kdata->udev, 2),
-	                      data, expected_length, &received, 3000);
+	                   data, expected_length, &received, 3000);
 	if (ret)
 		return ret;
 	if (received != expected_length)
@@ -126,164 +127,100 @@ int kraken_driver_set_pump_percent(struct kraken_data *kdata, u32 value)
 	return 0;
 }
 
-static ssize_t show_color(struct device *dev, struct device_attribute *attr,
-                          char *buf)
+static ssize_t color_main_store(struct device *dev,
+                                struct device_attribute *attr,
+                                const char *buf, size_t count)
 {
 	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
 	struct kraken_driver_data *data = kdata->data;
-
-	return scnprintf(buf, PAGE_SIZE, "%02x%02x%02x\n",
-	                 data->color_message[1], data->color_message[2],
-	                 data->color_message[3]);
-}
-
-static ssize_t set_color(struct device *dev, struct device_attribute *attr,
-                         const char *buf, size_t count)
-{
-	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
-	struct kraken_driver_data *data = kdata->data;
-
-	u8 r, g, b;
-	if (sscanf(buf, "%02hhx%02hhx%02hhx", &r, &g, &b) != 3)
-		return -EINVAL;
-
-	data->color_message[1] = r;
-	data->color_message[2] = g;
-	data->color_message[3] = b;
-
-	data->send_color = true;
-
+	struct kraken_color color;
+	int ret = kraken_parse_color(&buf, &color);
+	if (ret)
+		return ret;
+	data->color_message[1] = color.red;
+	data->color_message[2] = color.green;
+	data->color_message[3] = color.blue;
 	return count;
 }
 
-static DEVICE_ATTR(color, S_IRUGO | S_IWUSR | S_IWGRP, show_color, set_color);
+static DEVICE_ATTR_WO(color_main);
 
-static ssize_t show_alternate_color(struct device *dev,
-                                    struct device_attribute *attr, char *buf)
+static ssize_t color_alternate_store(struct device *dev,
+                                     struct device_attribute *attr,
+                                     const char *buf, size_t count)
 {
 	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
 	struct kraken_driver_data *data = kdata->data;
-
-	return scnprintf(buf, PAGE_SIZE, "%02x%02x%02x\n",
-	                 data->color_message[4], data->color_message[5],
-	                 data->color_message[6]);
-}
-
-static ssize_t set_alternate_color(struct device *dev,
-                                   struct device_attribute *attr,
-                                   const char *buf, size_t count)
-{
-	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
-	struct kraken_driver_data *data = kdata->data;
-
-	u8 r, g, b;
-	if (sscanf(buf, "%02hhx%02hhx%02hhx", &r, &g, &b) != 3)
+	struct kraken_color color;
+	int ret = kraken_parse_color(&buf, &color);
+	if (ret)
 		return -EINVAL;
-
-	data->color_message[4] = r;
-	data->color_message[5] = g;
-	data->color_message[6] = b;
-
-	data->send_color = true;
-
+	data->color_message[4] = color.red;
+	data->color_message[5] = color.green;
+	data->color_message[6] = color.blue;
 	return count;
 }
 
-static DEVICE_ATTR(alternate_color, S_IRUGO | S_IWUSR | S_IWGRP,
-                   show_alternate_color, set_alternate_color);
+static DEVICE_ATTR_WO(color_alternate);
 
-static ssize_t show_interval(struct device *dev, struct device_attribute *attr,
-                             char *buf)
+static ssize_t interval_store(struct device *dev, struct device_attribute *attr,
+                              const char *buf, size_t count)
 {
 	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
 	struct kraken_driver_data *data = kdata->data;
-
-	return scnprintf(buf, PAGE_SIZE, "%u\n", data->color_message[11]);
-}
-
-static ssize_t set_interval(struct device *dev, struct device_attribute *attr,
-                            const char *buf, size_t count)
-{
-	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
-	struct kraken_driver_data *data = kdata->data;
-
+	int read;
 	u8 interval;
-	if (sscanf(buf, "%hhu", &interval) != 1 || interval == 0)
+	int ret = sscanf(buf, "%hhu%n", &interval, &read);
+	if (ret != 1 || interval < 1)
 		return -EINVAL;
-
-	data->color_message[11] = interval; data->color_message[12] = interval;
-
-	data->send_color = true;
-
+	buf += read;
+	data->color_message[11] = interval;
+	data->color_message[12] = interval;
 	return count;
 }
 
-static DEVICE_ATTR(interval, S_IRUGO | S_IWUSR | S_IWGRP, show_interval,
-                   set_interval);
+static DEVICE_ATTR_WO(interval);
 
-static ssize_t show_mode(struct device *dev, struct device_attribute *attr,
-                         char *buf)
+static ssize_t mode_store(struct device *dev, struct device_attribute *attr,
+                          const char *buf, size_t count)
 {
 	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
 	struct kraken_driver_data *data = kdata->data;
-
-	if (data->color_message[14] == 1)
-		return scnprintf(buf, PAGE_SIZE, "alternating\n");
-	else if (data->color_message[15] == 1)
-		return scnprintf(buf, PAGE_SIZE, "blinking\n");
-	else if (data->color_message[13] == 1)
-		return scnprintf(buf, PAGE_SIZE, "normal\n");
-	else
-		return scnprintf(buf, PAGE_SIZE, "off\n");
-}
-
-static ssize_t set_mode(struct device *dev, struct device_attribute *attr,
-                        const char *buf, size_t count)
-{
-	struct kraken_data *kdata = usb_get_intfdata(to_usb_interface(dev));
-	struct kraken_driver_data *data = kdata->data;
-
-	if (strncasecmp(buf, "normal", strlen("normal")) == 0) {
-		data->color_message[13] = 1;
-		data->color_message[14] = 0;
-		data->color_message[15] = 0;
-	} else if (strncasecmp(buf, "alternating",
-	                       strlen("alternating")) == 0) {
-		data->color_message[13] = 1;
-		data->color_message[14] = 1;
-		data->color_message[15] = 0;
-	} else if (strncasecmp(buf, "blinking", strlen("blinking")) == 0) {
-		data->color_message[13] = 1;
-		data->color_message[14] = 0;
-		data->color_message[15] = 1;
-	} else if (strncasecmp(buf, "off", strlen("off")) == 0) {
-		data->color_message[13] = 0;
-		data->color_message[14] = 0;
-		data->color_message[15] = 0;
-	} else
+	struct kraken_parse_enum words[] = {
+		{"normal",      1 << 16 | 0 << 8 | 0 << 0},
+		{"alternating", 1 << 16 | 1 << 8 | 0 << 0},
+		{"blinking",    1 << 16 | 0 << 8 | 1 << 0},
+		{"off",         0 << 16 | 0 << 8 | 0 << 0},
+		{NULL, 0},
+	};
+	u64 mode;
+	int ret = kraken_parse_enum(&buf, words, &mode);
+	if (ret)
 		return -EINVAL;
-
+	data->color_message[13] = mode >> 16 & 0xFF;
+	data->color_message[14] = mode >>  8 & 0xFF;
+	data->color_message[15] = mode >>  0 & 0xFF;
 	data->send_color = true;
-
 	return count;
 }
 
-static DEVICE_ATTR(mode, S_IRUGO | S_IWUSR | S_IWGRP, show_mode, set_mode);
+static DEVICE_ATTR_WO(mode);
 
-static struct attribute *kraken_x61_group_attrs[] = {
-	&dev_attr_color.attr,
-	&dev_attr_alternate_color.attr,
+static struct attribute *kraken_x61_group_led_attrs[] = {
+	&dev_attr_color_main.attr,
+	&dev_attr_color_alternate.attr,
 	&dev_attr_interval.attr,
 	&dev_attr_mode.attr,
 	NULL,
 };
 
-static struct attribute_group kraken_x61_group = {
-	.attrs = kraken_x61_group_attrs,
+static struct attribute_group kraken_x61_group_led = {
+	.attrs = kraken_x61_group_led_attrs,
+	.name = "led",
 };
 
 const struct attribute_group *kraken_driver_groups[] = {
-	&kraken_x61_group,
+	&kraken_x61_group_led,
 	NULL,
 };
 
